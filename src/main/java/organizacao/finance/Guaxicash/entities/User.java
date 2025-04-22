@@ -4,9 +4,7 @@ import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -19,17 +17,17 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID uuid;
     private String name;
-    private String username;
+    private String email;
     private String phone;
     private String password;
     private UserRole role;
 
     public User() {}
 
-    public User(UUID uuid, String name, String username, String phone, String password, UserRole role) {
+    public User(UUID uuid, String name, String email, String phone, String password, UserRole role) {
             this.uuid = uuid;
             this.name = name;
-            this.username = username;
+            this.email = email;
             this.phone = phone;
             this.password = password;
             this.role = role;
@@ -51,9 +49,8 @@ public class User implements UserDetails {
             this.name = name;
         }
 
-        @Override
-        public String getUsername () {
-            return username;
+        public String getEmail() {
+            return email;
         }
 
         public UserRole getRole () {
@@ -84,8 +81,8 @@ public class User implements UserDetails {
             return true;
         }
 
-        public void setUsername (String username){
-            this.username = username;
+        public void setEmail(String email){
+            this.email = email;
         }
 
         public String getPhone () {
@@ -109,7 +106,12 @@ public class User implements UserDetails {
             return password;
         }
 
-        public void setPassword (String password){
+    @Override
+    public String getUsername() {
+        return "";
+    }
+
+    public void setPassword (String password){
             this.password = password;
         }
 
@@ -119,7 +121,7 @@ public class User implements UserDetails {
             return "Users{" +
                     "uuid=" + uuid +
                     ", name='" + name + '\'' +
-                    ", username='" + username + '\'' +
+                    ", email='" + email + '\'' +
                     ", phone='" + phone + '\'' +
                     ", password='" + password + '\'' +
                     '}';
