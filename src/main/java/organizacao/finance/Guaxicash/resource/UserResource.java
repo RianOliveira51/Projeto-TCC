@@ -7,9 +7,11 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import organizacao.finance.Guaxicash.Config.TokenService;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
 import organizacao.finance.Guaxicash.resource.dto.AuthenticationDTO;
+import organizacao.finance.Guaxicash.resource.dto.LoginReponseDTO;
 import organizacao.finance.Guaxicash.resource.dto.RegisterDTO;
 import organizacao.finance.Guaxicash.service.UserService;
 
@@ -33,15 +35,18 @@ public class UserResource {
     @Autowired
     private UserService userservice;
 
+
     @Autowired
-    private UserRepository userrepository;
+    private TokenService tokenService;
 
     @PostMapping("/login")
     public ResponseEntity login(@RequestBody @Validated AuthenticationDTO data){
         var usernamePassword = new UsernamePasswordAuthenticationToken(data.email(), data.password());
         var auth = this.authenticationManager.authenticate(usernamePassword);
 
-        return ResponseEntity.ok().build();
+        var token = tokenService.generateToken((User)auth.getPrincipal());
+
+        return ResponseEntity.ok(new LoginReponseDTO(token));
     }
 
     @PostMapping("/register")
@@ -51,7 +56,7 @@ public class UserResource {
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
         User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, data.role() );
 
-        this.userrepository.save(newUser);
+        this.userRepository.save(newUser);
 
         return ResponseEntity.ok().build();
     }

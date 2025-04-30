@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
 import organizacao.finance.Guaxicash.resource.dto.AuthenticationDTO;
+import organizacao.finance.Guaxicash.resource.dto.LoginReponseDTO;
 import organizacao.finance.Guaxicash.resource.dto.RegisterDTO;
 import organizacao.finance.Guaxicash.service.UserService;
 
@@ -29,12 +30,18 @@ public class AuthenticationController {
     @Autowired
     private UserRepository userrepository;
 
+    @Autowired
+    private TokenService tokenService;
+
+
     @PostMapping("/login")
     public ResponseEntity login(@RequestBody @Validated AuthenticationDTO data){
         var usernamePassword = new UsernamePasswordAuthenticationToken(data.email(), data.password());
         var auth = this.authenticationManager.authenticate(usernamePassword);
 
-        return ResponseEntity.ok().build();
+        var token = tokenService.generateToken((User)auth.getPrincipal());
+
+        return ResponseEntity.ok(new LoginReponseDTO(token));
     }
 
     @PostMapping("/register")
