@@ -9,6 +9,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.Config.TokenService;
 import organizacao.finance.Guaxicash.entities.User;
+import organizacao.finance.Guaxicash.entities.UserRole;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
 import organizacao.finance.Guaxicash.resource.dto.AuthenticationDTO;
 import organizacao.finance.Guaxicash.resource.dto.LoginReponseDTO;
@@ -17,6 +18,7 @@ import organizacao.finance.Guaxicash.service.UserService;
 
 import java.util.List;
 
+@CrossOrigin(origins = "http://localhost:4200")
 @RestController
 @RequestMapping(value = "/users")
 public class UserResource {
@@ -54,7 +56,7 @@ public class UserResource {
         if(this.userservice.loadUserByUsername(data.email()) != null) return ResponseEntity.badRequest().build();
         //Pegando hash da senha do usuario
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, data.role() );
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER); // mudar ao implementar funções de admin
 
         this.userRepository.save(newUser);
 

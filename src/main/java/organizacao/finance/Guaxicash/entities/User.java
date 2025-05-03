@@ -20,7 +20,7 @@ public class User implements UserDetails {
     private String email;
     private String phone;
     private String password;
-    private UserRole role;
+    private UserRole role = UserRole.USER;
 
     public User() {}
 
