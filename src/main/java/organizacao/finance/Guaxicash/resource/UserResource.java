@@ -34,9 +34,6 @@ public class UserResource {
     @Autowired
     private AuthenticationManager authenticationManager;
 
-    @Autowired
-    private UserService userservice;
-
 
     @Autowired
     private TokenService tokenService;
@@ -53,7 +50,7 @@ public class UserResource {
 
     @PostMapping("/register")
     public ResponseEntity register (@RequestBody @Validated RegisterDTO data){
-        if(this.userservice.loadUserByUsername(data.email()) != null) return ResponseEntity.badRequest().build();
+        if(this.userService.loadUserByUsername(data.email()) != null) return ResponseEntity.badRequest().build();
         //Pegando hash da senha do usuario
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
         User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER); // mudar ao implementar funções de admin
