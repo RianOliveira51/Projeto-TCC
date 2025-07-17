@@ -13,6 +13,7 @@ import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.BankRepository;
 import organizacao.finance.Guaxicash.repositories.TypeRepository;
+import organizacao.finance.Guaxicash.repositories.UserRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
 import java.util.List;
@@ -31,6 +32,9 @@ public class AccountsService {
     @Autowired
     private TypeRepository typeRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     public List<Accounts> findAll() {return accountsRepository.findAll();
     }
 
@@ -42,16 +46,26 @@ public class AccountsService {
     public Accounts insert(Accounts accounts) {
         UUID bankId = accounts.getBank().getUuid();
         UUID typeId = accounts.getType().getUuid();
+        UUID userId = accounts.getUser().getUuid();
 
         Bank bank = bankRepository.findById(bankId)
                 .orElseThrow(() -> new ResourceNotFoundExeption(bankId));
         Type type = typeRepository.findById(typeId)
                 .orElseThrow(() -> new ResourceNotFoundExeption(typeId));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundExeption(userId));
 
         accounts.setBank(bank);
         accounts.setType(type);
+        accounts.setUser(user);
 
         return accountsRepository.save(accounts);
+    }
+    public List<Accounts> findByUser(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundExeption(userId));
+
+        return accountsRepository.findByUser(user);
     }
 
     public void Delete(UUID id){

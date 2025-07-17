@@ -23,7 +23,7 @@ public class UserService implements UserDetailsService {
 
     public List<User> findall(){ return userRepository.findAll(); }
 
-    public User FindById(UUID id){
+    public User findById(UUID id){
         Optional<User> obj = userRepository.findById(id);
         return obj.orElseThrow(()-> new ResourceNotFoundExeption(id));
     }
@@ -32,7 +32,7 @@ public class UserService implements UserDetailsService {
         return userRepository.save(user);
     }
 
-    public void Delete(UUID id){
+    public void delete(UUID id){
         try {
             userRepository.deleteById(id);
         }catch (ResourceNotFoundExeption e){
@@ -54,7 +54,8 @@ public class UserService implements UserDetailsService {
 
     public void updateData( User entity, User user){
         entity.setName(user.getName());
-        entity.getEmail();
+        entity.setEmail(user.getEmail());
+        entity.setPhone(user.getPhone());
         entity.setPassword(user.getPassword());
     }
 

@@ -17,6 +17,7 @@ import organizacao.finance.Guaxicash.resource.dto.RegisterDTO;
 import organizacao.finance.Guaxicash.service.UserService;
 
 import java.util.List;
+import java.util.UUID;
 
 @CrossOrigin(origins = "http://localhost:4200")
 @RestController
@@ -26,14 +27,13 @@ public class UserResource {
     @Autowired
     private UserService userService;
 
-
     private BCryptPasswordEncoder bCryptPasswordEncoder;
 
     @Autowired
     private UserRepository userRepository;
+
     @Autowired
     private AuthenticationManager authenticationManager;
-
 
     @Autowired
     private TokenService tokenService;
@@ -53,7 +53,7 @@ public class UserResource {
         if(this.userService.loadUserByUsername(data.email()) != null) return ResponseEntity.badRequest().build();
         //Pegando hash da senha do usuario
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER); // mudar ao implementar funções de admin
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, data.role()); // mudar ao implementar funções de admin
 
         this.userRepository.save(newUser);
 
@@ -64,6 +64,24 @@ public class UserResource {
     public ResponseEntity<List<User>> findAll() {
         List<User> list = userService.findall();
         return ResponseEntity.ok().body(list);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<User> findbyId(@PathVariable UUID id) {
+        User obj = userService.findById(id);
+        return ResponseEntity.ok().body(obj);
+    }
+
+    @DeleteMapping(value = "/{id}")
+    public ResponseEntity delete(@PathVariable UUID id){
+        userRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping(value="/{id}")
+    public ResponseEntity update(@PathVariable UUID id, @RequestBody @Validated User user){
+        user = userService.update(id, user);
+        return ResponseEntity.ok().build();
     }
 
 }

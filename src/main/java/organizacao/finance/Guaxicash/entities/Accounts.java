@@ -21,16 +21,29 @@ public class Accounts {
     @JoinColumn(name = "type_id")
     private Type type;
 
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
     public Accounts(){
 
     }
 
-    public Accounts(UUID uuid, String name, Float balance, Bank bank, Type type){
+    public Accounts(UUID uuid, String name, Float balance, Bank bank, Type type, User user) {
         this.uuid = uuid;
         this.name = name;
         this.balance = balance;
         this.bank = bank;
         this.type = type;
+        this.user = user;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public UUID getUuid() {

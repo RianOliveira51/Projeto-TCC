@@ -26,6 +26,12 @@ public class AccountsResource {
         return ResponseEntity.ok(accounts);
     }
 
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<Accounts>> getAccountsByUser(@PathVariable UUID userId) {
+        List<Accounts> accounts = accountsService.findByUser(userId);
+        return ResponseEntity.ok(accounts);
+    }
+
     @PutMapping("/update/{id}")
     public ResponseEntity<Accounts> updateAccount(@PathVariable UUID id, @RequestBody Accounts accounts) {
         Accounts updated = accountsService.update(id, accounts);
