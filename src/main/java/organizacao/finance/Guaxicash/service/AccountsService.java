@@ -3,9 +3,11 @@ package organizacao.finance.Guaxicash.service;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import organizacao.finance.Guaxicash.Config.SecurityService;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.Bank;
 import organizacao.finance.Guaxicash.entities.Type;
@@ -35,6 +37,9 @@ public class AccountsService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private SecurityService securityService;
+
     public List<Accounts> findAll() {return accountsRepository.findAll();
     }
 
@@ -46,18 +51,21 @@ public class AccountsService {
     public Accounts insert(Accounts accounts) {
         UUID bankId = accounts.getBank().getUuid();
         UUID typeId = accounts.getType().getUuid();
-        UUID userId = accounts.getUser().getUuid();
+
 
         Bank bank = bankRepository.findById(bankId)
                 .orElseThrow(() -> new ResourceNotFoundExeption(bankId));
         Type type = typeRepository.findById(typeId)
                 .orElseThrow(() -> new ResourceNotFoundExeption(typeId));
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundExeption(userId));
 
+        User userAuth  = securityService.obterUserLogin();
+
+        User user = userRepository.findById(userAuth.getUuid())
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado no banco"));
+
+        accounts.setUser(user);
         accounts.setBank(bank);
         accounts.setType(type);
-        accounts.setUser(user);
 
         return accountsRepository.save(accounts);
     }
@@ -68,9 +76,17 @@ public class AccountsService {
         return accountsRepository.findByUser(user);
     }
 
-    public void Delete(UUID id){
+    public void delete(UUID id){
         try {
-            accountsRepository.deleteById(id);
+            Accounts entity = accountsRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundExeption(id));
+
+            // Verifica se a conta pertence ao usuário logado
+            User authUser = securityService.obterUserLogin();
+            if (!entity.getUser().getUuid().equals(authUser.getUuid())) {
+                throw new SecurityException("Você não tem permissão para deletar esta conta.");
+            }
+
         }catch (ResourceNotFoundExeption e){
             throw new ResourceNotFoundExeption(id);
         }catch (DataIntegrityViolationException e){
@@ -79,7 +95,13 @@ public class AccountsService {
     }
     public Accounts update(UUID id, Accounts updatedAccount) {
         try {
-            Accounts entity = accountsRepository.getReferenceById(id);
+            Accounts entity = accountsRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundExeption(id));
+            //Verifica se a conta pertence ao usuário logado
+            User authUser = securityService.obterUserLogin();
+            if (!entity.getUser().getUuid().equals(authUser.getUuid())) {
+                throw new SecurityException("Você não tem permissão para atualizar esta conta.");
+            }
             updateData(entity, updatedAccount);
             return accountsRepository.save(entity);
         } catch (EntityNotFoundException e) {
@@ -90,6 +112,8 @@ public class AccountsService {
     private void updateData(Accounts entity, Accounts updatedAccount) {
         entity.setName(updatedAccount.getName());
         entity.setBalance(updatedAccount.getBalance());
+        entity.setType(updatedAccount.getType());
+        entity.setBank(updatedAccount.getBank());
 
         if (updatedAccount.getBank() != null) {
             entity.setBank(updatedAccount.getBank());
@@ -97,6 +121,10 @@ public class AccountsService {
 
         if (updatedAccount.getType() != null) {
             entity.setType(updatedAccount.getType());
+        }
+
+        if(updatedAccount.getUser() != null) {
+            entity.setUser(updatedAccount.getUser());
         }
     }
 }

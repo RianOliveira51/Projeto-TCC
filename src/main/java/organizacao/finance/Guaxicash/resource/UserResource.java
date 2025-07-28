@@ -1,10 +1,16 @@
 package organizacao.finance.Guaxicash.resource;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.Config.TokenService;
@@ -49,22 +55,35 @@ public class UserResource {
     }
 
     @PostMapping("/register")
-    public ResponseEntity register (@RequestBody @Validated RegisterDTO data){
-        if(this.userService.loadUserByUsername(data.email()) != null) return ResponseEntity.badRequest().build();
-        //Pegando hash da senha do usuario
+    public ResponseEntity<?> register(@RequestBody @Validated RegisterDTO data) {
+        // Verifica se e-mail já está em uso
+        if (userRepository.existsByEmail(data.email())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("E-mail já cadastrado.");
+        }
+        if (data.role().equals(UserRole.ADMIN)) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (!(auth.getPrincipal() instanceof User userAuth) || userAuth.getRole() != UserRole.ADMIN) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Apenas administradores podem criar outros administradores.");
+            }
+        }
+
+        // Cria o usuário
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, data.role()); // mudar ao implementar funções de admin
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, data.role());
 
-        this.userRepository.save(newUser);
+        userRepository.save(newUser);
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok("Usuário registrado com sucesso.");
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<List<User>> findAll() {
         List<User> list = userService.findall();
         return ResponseEntity.ok().body(list);
     }
+
 
     @GetMapping("/{id}")
     public ResponseEntity<User> findbyId(@PathVariable UUID id) {
@@ -74,7 +93,7 @@ public class UserResource {
 
     @DeleteMapping(value = "/{id}")
     public ResponseEntity delete(@PathVariable UUID id){
-        userRepository.deleteById(id);
+        userService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
