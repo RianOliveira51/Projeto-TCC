@@ -1,10 +1,12 @@
 package organizacao.finance.Guaxicash.service;
 
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.Bank;
+import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.BankRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
@@ -31,7 +33,23 @@ public class BankService {
         return bankRepository.save(bank);
     }
 
-    public void Delete(UUID id){
+    public Bank update(UUID id, Bank updatedBank) {
+        try {
+            Bank entity = bankRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundExeption(id));
+            updateData(entity, updatedBank);
+            return bankRepository.save(entity);
+        } catch (EntityNotFoundException e) {
+            throw new ResourceNotFoundExeption(id);
+        }
+    }
+
+    private void updateData(Bank entity, Bank updatedAccount) {
+        entity.setName(updatedAccount.getName());
+
+    }
+
+    public void delete(UUID id){
         try {
             bankRepository.deleteById(id);
         }catch (ResourceNotFoundExeption e){
