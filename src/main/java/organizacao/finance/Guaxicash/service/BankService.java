@@ -46,7 +46,6 @@ public class BankService {
 
     private void updateData(Bank entity, Bank updatedAccount) {
         entity.setName(updatedAccount.getName());
-
     }
 
     public void delete(UUID id){

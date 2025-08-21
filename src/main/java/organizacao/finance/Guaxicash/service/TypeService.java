@@ -1,5 +1,6 @@
 package organizacao.finance.Guaxicash.service;
 
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -31,8 +32,22 @@ public class TypeService {
     public Type insert(Type type) {
         return typeRepository.save(type);
     }
+    public Type update(UUID id, Type updatedType) {
+        try {
+            Type entity = typeRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundExeption(id));
+            updateData(entity, updatedType);
+            return typeRepository.save(entity);
+        } catch (EntityNotFoundException e) {
+            throw new ResourceNotFoundExeption(id);
+        }
+    }
 
-    public void Delete(UUID id){
+    private void updateData(Type entity, Type updatedAccount) {
+        entity.setDescription(updatedAccount.getDescription());
+    }
+
+    public void delete(UUID id){
         try {
             typeRepository.deleteById(id);
         }catch (ResourceNotFoundExeption e){

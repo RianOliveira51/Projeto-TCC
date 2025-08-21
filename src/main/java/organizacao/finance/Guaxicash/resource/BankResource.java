@@ -22,15 +22,17 @@ public class BankResource {
     @Autowired
     private BankRepository bankRepository;
 
-    @PreAuthorize("hasAnyRole('ADMIN')")
+
     @PostMapping("/create")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<Bank> createAccount(@RequestBody Bank bank) {
         bank = bankService.insert(bank);
         return ResponseEntity.ok(bank);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN')")
+
     @PutMapping({"/{id}"})
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<Bank> updateBank(@PathVariable UUID id, @RequestBody Bank bank){
         Bank updated = bankService.update(id, bank);
         return ResponseEntity.ok(updated);
