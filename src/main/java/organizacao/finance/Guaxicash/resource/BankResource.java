@@ -25,7 +25,7 @@ public class BankResource {
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<Bank> createAccount(@RequestBody Bank bank) {
+    public ResponseEntity<Bank> createBank(@RequestBody Bank bank) {
         bank = bankService.insert(bank);
         return ResponseEntity.ok(bank);
     }

@@ -2,6 +2,7 @@ package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.UUID;
 
@@ -12,13 +13,14 @@ public class CreditCard {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID uuid;
-    private String limite;
+    private Double limite;
     private String description;
-    private Date CloseDate;
-    private Date ExpiryDate;
+    private LocalDate closeDate;
+    private LocalDate expiryDate;
     @ManyToOne
     @JoinColumn(name = "flags_id")
     private Flags flags;
+
     @ManyToOne
     @JoinColumn(name = "accounts_id")
     private Accounts accounts;
@@ -27,12 +29,12 @@ public class CreditCard {
 
     }
 
-    public CreditCard(UUID uuid, String limite, String description, Date closeDate, Date expiryDate, Flags flags, Accounts accounts) {
+    public CreditCard(UUID uuid, Double limite, String description, LocalDate closeDate, LocalDate expiryDate, Flags flags, Accounts accounts) {
         this.uuid = uuid;
         this.limite = limite;
         this.description = description;
-        this.CloseDate = closeDate;
-        this.ExpiryDate = expiryDate;
+        this.closeDate = closeDate;
+        this.expiryDate = expiryDate;
         this.flags = flags;
         this.accounts = accounts;
     }
@@ -45,12 +47,12 @@ public class CreditCard {
         this.uuid = uuid;
     }
 
-    public String getLimite() {
+    public Double getLimite() {
         return limite;
     }
 
-    public void setLimite(String limit) {
-        this.limite = limit;
+    public void setLimite(Double limite) {
+        this.limite = limite;
     }
 
     public String getDescription() {
@@ -61,20 +63,20 @@ public class CreditCard {
         this.description = description;
     }
 
-    public Date getCloseDate() {
-        return CloseDate;
+    public LocalDate getCloseDate() {
+        return closeDate;
     }
 
-    public void setCloseDate(Date closeDate) {
-        CloseDate = closeDate;
+    public void setCloseDate(LocalDate closeDate) {
+        this.closeDate = closeDate;
     }
 
-    public Date getExpiryDate() {
-        return ExpiryDate;
+    public LocalDate getExpiryDate() {
+        return expiryDate;
     }
 
-    public void setExpiryDate(Date expiryDate) {
-        ExpiryDate = expiryDate;
+    public void setExpiryDate(LocalDate expiryDate) {
+        this.expiryDate = expiryDate;
     }
 
     public Flags getFlags() {
@@ -85,11 +87,11 @@ public class CreditCard {
         this.flags = flags;
     }
 
-    public Accounts getBank() {
+    public Accounts getAccounts() {
         return accounts;
     }
 
-    public void setBank(Accounts bank) {
-        this.accounts = bank;
+    public void setAccounts(Accounts accounts) {
+        this.accounts = accounts;
     }
 }

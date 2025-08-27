@@ -1,6 +1,4 @@
-package organizacao.finance.Guaxicash.entities;
-
-import aj.org.objectweb.asm.commons.Remapper;
+package organizacao.finance.Guaxicash.entities.Enums;
 
 public enum UserRole {
     ADMIN("admin"),

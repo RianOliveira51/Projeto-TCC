@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 
 import java.util.Collection;
 import java.util.List;

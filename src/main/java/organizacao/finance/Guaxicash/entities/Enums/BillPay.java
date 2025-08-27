@@ -1,0 +1,25 @@
+package organizacao.finance.Guaxicash.entities.Enums;
+
+public enum BillPay {
+
+    PENDING(0),
+    PAID(1);
+
+    private final int code;
+
+    BillPay(int code) {
+        this.code = code;
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public static BillPay fromCode(Integer code) {
+        if (code == null) return null;
+        for (BillPay b : values()) {
+            if (b.code == code) return b;
+        }
+        throw new IllegalArgumentException("Código inválido para BillPay: " + code);
+    }
+}

@@ -25,7 +25,7 @@ public class TypeResource {
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<Type> createAccount(@RequestBody Type type) {
+    public ResponseEntity<Type> createType(@RequestBody Type type) {
         type = typeService.insert(type);
         return ResponseEntity.ok(type);
     }
