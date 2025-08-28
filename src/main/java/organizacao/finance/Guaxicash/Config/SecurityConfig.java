@@ -56,10 +56,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/users/register").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/users").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/users").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/accounts").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/users").permitAll()
+
                         //Bank
                         .requestMatchers(HttpMethod.POST, "/bank/create").permitAll()
                         //accounts
-                        .requestMatchers(HttpMethod.GET, "/accounts").hasRole("ADMIN")
+                        //.requestMatchers(HttpMethod.GET, "/accounts").hasRole("ADMIN")
 
                         //Qualquer outra requisição, tem que estar autenticado.
                         .anyRequest().authenticated())

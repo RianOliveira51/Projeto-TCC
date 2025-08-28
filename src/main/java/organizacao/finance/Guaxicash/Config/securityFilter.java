@@ -35,7 +35,7 @@ public class securityFilter extends OncePerRequestFilter {
             var authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
-        //chamando proximo filtro
+
         filterChain.doFilter(request, response);
     }
 

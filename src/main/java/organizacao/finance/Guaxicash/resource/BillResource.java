@@ -24,7 +24,6 @@ public class BillResource {
     private BillRepository billRepository;
 
     @PostMapping("/create")
-    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<Bill> create(@RequestBody Bill bill) {
         bill = billService.insert(bill);
         return ResponseEntity.ok(bill);

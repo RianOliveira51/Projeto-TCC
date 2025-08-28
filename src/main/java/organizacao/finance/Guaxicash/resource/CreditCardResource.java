@@ -21,30 +21,30 @@ public class CreditCardResource {
 
     @Autowired
     private CreditCardService creditCardService;
-    @Autowired
-    private CreditCardRepository creditCardRepository;
 
     @PostMapping("/create")
     public ResponseEntity<CreditCard> create(@RequestBody CreditCard creditCard) {
-        creditCard = creditCardService.insert(creditCard);
-        return ResponseEntity.ok(creditCard);
+        CreditCard created = creditCardService.insert(creditCard);
+        return ResponseEntity.ok(created);
     }
 
     @GetMapping
     public ResponseEntity<List<CreditCard>> findAll() {
-        List<CreditCard> list = creditCardService.findAll();
-        return ResponseEntity.ok().body(list);
+        return ResponseEntity.ok(creditCardService.findAll());
     }
 
-    @PutMapping({"/{id}"})
-    @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<CreditCard> updateBank(@PathVariable UUID id, @RequestBody CreditCard creditCard){
-        CreditCard updated = creditCardService.update(id, creditCard);
-        return ResponseEntity.ok(updated);
+    @GetMapping("/{id}")
+    public ResponseEntity<CreditCard> findById(@PathVariable UUID id) {
+        return ResponseEntity.ok(creditCardService.findById(id));
     }
 
-    @DeleteMapping(value = "/{id}")
-    public ResponseEntity delete(@PathVariable UUID id){
+    @PutMapping("/{id}")
+    public ResponseEntity<CreditCard> update(@PathVariable UUID id, @RequestBody CreditCard creditCard){
+        return ResponseEntity.ok(creditCardService.update(id, creditCard));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id){
         creditCardService.delete(id);
         return ResponseEntity.noContent().build();
     }

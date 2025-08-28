@@ -18,35 +18,30 @@ public class AccountsResource {
 
     @Autowired
     private AccountsService accountsService;
-    @Autowired
-    private AccountsRepository accountsRepository;
 
     @PostMapping("/create")
     public ResponseEntity<Accounts> createAccount(@RequestBody Accounts accounts) {
-        accounts = accountsService.insert(accounts);
-        return ResponseEntity.ok(accounts);
-    }
-
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Accounts>> getAccountsByUser(@PathVariable UUID userId) {
-        List<Accounts> accounts = accountsService.findByUser(userId);
-        return ResponseEntity.ok(accounts);
+        Accounts created = accountsService.insert(accounts);
+        return ResponseEntity.ok(created);
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<List<Accounts>> findAll() {
-        List<Accounts> list = accountsService.findAll();
-        return ResponseEntity.ok().body(list);
-    }
-    @PutMapping("/{id}")
-    public ResponseEntity<Accounts> updateAccount(@PathVariable UUID id, @RequestBody Accounts accounts) {
-        Accounts updated = accountsService.update(id, accounts);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(accountsService.findAll());
     }
 
-    @DeleteMapping(value = "/{id}")
-    public ResponseEntity delete(@PathVariable UUID id){
+    @GetMapping("/{id}")
+    public ResponseEntity<Accounts> findById(@PathVariable UUID id) {
+        return ResponseEntity.ok(accountsService.findById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Accounts> updateAccount(@PathVariable UUID id, @RequestBody Accounts accounts) {
+        return ResponseEntity.ok(accountsService.update(id, accounts));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id){
         accountsService.delete(id);
         return ResponseEntity.noContent().build();
     }

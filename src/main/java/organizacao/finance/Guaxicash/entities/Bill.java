@@ -14,21 +14,21 @@ public class Bill {
     private UUID uuid;
     private Double value;
     private BillPay status = BillPay.PENDING;
-    private LocalDate  CloseDate;
-    private LocalDate  OpenDate;
-    private LocalDate  PayDate;
+    private LocalDate closeDate;
+    private LocalDate openDate;
+    private LocalDate payDate;
 
     @ManyToOne
     @JoinColumn(name = "creditCard_id")
     private CreditCard creditCard;
 
-    public Bill(UUID uuid, String name, Double value, BillPay billPay, LocalDate CloseDate, LocalDate  OpenDate, LocalDate  PayDate, CreditCard creditCard) {
+    public Bill(UUID uuid, String name, Double value, BillPay billPay, LocalDate closeDate, LocalDate  openDate, LocalDate  PayDate, CreditCard creditCard) {
         this.uuid = uuid;
         this.value = value;
         this.status = billPay;
-        this.CloseDate = CloseDate;
-        this.OpenDate = OpenDate;
-        this.PayDate = PayDate;
+        this.closeDate = closeDate;
+        this.openDate = openDate;
+        this.payDate = PayDate;
         this.creditCard = creditCard;
     }
 
@@ -70,26 +70,26 @@ public class Bill {
     }
 
     public LocalDate  getCloseDate() {
-        return CloseDate;
+        return closeDate;
     }
 
     public void setCloseDate(LocalDate  closeDate) {
-        CloseDate = closeDate;
+        closeDate = closeDate;
     }
 
     public LocalDate  getOpenDate() {
-        return OpenDate;
+        return openDate;
     }
 
     public void setOpenDate(LocalDate  openDate) {
-        OpenDate = openDate;
+        openDate = openDate;
     }
 
     public LocalDate  getPayDate() {
-        return PayDate;
+        return payDate;
     }
 
     public void setPayDate(LocalDate  payDate) {
-        PayDate = payDate;
+        payDate = payDate;
     }
 }
