@@ -3,7 +3,10 @@ package organizacao.finance.Guaxicash.entities.Enums;
 public enum BillPay {
 
     PENDING(0),
-    PAID(1);
+    PAID(1),
+    FUTURE_BILLS(2),
+    OPEN(3);
+
 
     private final int code;
 

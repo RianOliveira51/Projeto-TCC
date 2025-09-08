@@ -58,6 +58,7 @@ public class UserResource {
         if (userRepository.existsByEmail(data.email())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("E-mail já cadastrado.");
         }
+
         if (data.role().equals(UserRole.ADMIN)) {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (!(auth.getPrincipal() instanceof User userAuth) || userAuth.getRole() != UserRole.ADMIN) {
@@ -66,7 +67,6 @@ public class UserResource {
             }
         }
 
-        // Cria o usuário
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
         User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, data.role());
 

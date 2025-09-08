@@ -2,9 +2,11 @@ package organizacao.finance.Guaxicash.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.Config.SecurityService;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.CreditCard;
@@ -14,7 +16,9 @@ import organizacao.finance.Guaxicash.entities.User;
 
 
 import organizacao.finance.Guaxicash.repositories.AccountsRepository;
+import organizacao.finance.Guaxicash.repositories.BillRepository;
 import organizacao.finance.Guaxicash.repositories.CreditCardRepository;
+import organizacao.finance.Guaxicash.service.eventos.CreditCardForBill.CreditCardCreatedEvent;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
 import java.util.List;
@@ -23,9 +27,16 @@ import java.util.UUID;
 @Service
 public class CreditCardService {
 
-    @Autowired private CreditCardRepository creditCardRepository;
-    @Autowired private AccountsRepository accountsRepository;
-    @Autowired private SecurityService securityService;
+    @Autowired
+    private CreditCardRepository creditCardRepository;
+    @Autowired
+    private AccountsRepository accountsRepository;
+    @Autowired
+    private SecurityService securityService;
+    @Autowired
+    private ApplicationEventPublisher publisher;
+    @Autowired
+    private BillRepository billRepository;
 
     private boolean isAdmin(User me) {
         return me.getRole() == UserRole.ADMIN;
@@ -49,6 +60,7 @@ public class CreditCardService {
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
     }
 
+    @Transactional
     public CreditCard insert(CreditCard card) {
         User me = securityService.obterUserLogin();
 
@@ -67,7 +79,13 @@ public class CreditCardService {
 
         card.setAccounts(acc);
 
-        return creditCardRepository.save(card);
+        CreditCard saved = creditCardRepository.save(card);
+
+        // >>> evento SÍNCRONO após salvar (mesma transação)
+        publisher.publishEvent(new CreditCardCreatedEvent(this, saved.getUuid()));
+
+        return saved;
+
     }
 
 
@@ -109,7 +127,7 @@ public class CreditCardService {
         }
     }
 
-
+    @Transactional
     public void delete(UUID id) {
         User me = securityService.obterUserLogin();
 
@@ -118,6 +136,10 @@ public class CreditCardService {
         }
 
         try {
+            // Fallback explícito (idempotente):
+            billRepository.deleteByCreditCardUuid(id);
+
+            // Agora apaga o cartão (se mapeado com cascade remove, também funcionaria sem a linha acima)
             creditCardRepository.deleteById(id);
         } catch (ResourceNotFoundExeption e) {
             throw new ResourceNotFoundExeption(id);
@@ -125,4 +147,11 @@ public class CreditCardService {
             throw new DataIntegrityViolationException(e.getMessage());
         }
     }
+
+    public CreditCardService(CreditCardRepository repo, ApplicationEventPublisher publisher) {
+        this.creditCardRepository = repo; this.publisher = publisher;
+    }
+
+
+
 }

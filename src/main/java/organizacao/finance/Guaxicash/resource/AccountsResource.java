@@ -26,6 +26,7 @@ public class AccountsResource {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<List<Accounts>> findAll() {
         return ResponseEntity.ok(accountsService.findAll());
     }

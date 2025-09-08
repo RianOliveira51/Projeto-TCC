@@ -23,11 +23,16 @@ import java.util.UUID;
 @Service
 public class AccountsService {
 
-    @Autowired private AccountsRepository accountsRepository;
-    @Autowired private BankRepository bankRepository;
-    @Autowired private TypeRepository typeRepository;
-    @Autowired private UserRepository userRepository;
-    @Autowired private SecurityService securityService;
+    @Autowired
+    private AccountsRepository accountsRepository;
+    @Autowired
+    private BankRepository bankRepository;
+    @Autowired
+    private TypeRepository typeRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private SecurityService securityService;
 
     private boolean isAdmin(User me) {
         return me.getRole() == UserRole.ADMIN;
@@ -137,4 +142,6 @@ public class AccountsService {
 
         return accountsRepository.findByUser(user);
     }
+
+
 }

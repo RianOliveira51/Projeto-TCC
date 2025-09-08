@@ -2,14 +2,8 @@ package organizacao.finance.Guaxicash.resource;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import organizacao.finance.Guaxicash.entities.Bank;
-import organizacao.finance.Guaxicash.entities.Bill;
 import organizacao.finance.Guaxicash.entities.CreditCard;
-import organizacao.finance.Guaxicash.repositories.BillRepository;
-import organizacao.finance.Guaxicash.repositories.CreditCardRepository;
-import organizacao.finance.Guaxicash.service.BillService;
 import organizacao.finance.Guaxicash.service.CreditCardService;
 
 import java.util.List;
@@ -24,8 +18,7 @@ public class CreditCardResource {
 
     @PostMapping("/create")
     public ResponseEntity<CreditCard> create(@RequestBody CreditCard creditCard) {
-        CreditCard created = creditCardService.insert(creditCard);
-        return ResponseEntity.ok(created);
+        return ResponseEntity.ok(creditCardService.insert(creditCard));
     }
 
     @GetMapping

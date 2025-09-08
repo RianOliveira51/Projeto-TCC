@@ -13,7 +13,8 @@ public class Bill {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID uuid;
     private Double value;
-    private BillPay status = BillPay.PENDING;
+    @Column(name = "status", nullable = false)
+    private BillPay status;
     private LocalDate closeDate;
     private LocalDate openDate;
     private LocalDate payDate;
@@ -22,7 +23,7 @@ public class Bill {
     @JoinColumn(name = "creditCard_id")
     private CreditCard creditCard;
 
-    public Bill(UUID uuid, String name, Double value, BillPay billPay, LocalDate closeDate, LocalDate  openDate, LocalDate  PayDate, CreditCard creditCard) {
+    public Bill(UUID uuid, Double value, BillPay billPay, LocalDate closeDate, LocalDate  openDate, LocalDate  PayDate, CreditCard creditCard) {
         this.uuid = uuid;
         this.value = value;
         this.status = billPay;
@@ -31,7 +32,6 @@ public class Bill {
         this.payDate = PayDate;
         this.creditCard = creditCard;
     }
-
 
     public Double getValue() {
         return value;
@@ -74,7 +74,7 @@ public class Bill {
     }
 
     public void setCloseDate(LocalDate  closeDate) {
-        closeDate = closeDate;
+        this.closeDate = closeDate;
     }
 
     public LocalDate  getOpenDate() {
@@ -82,7 +82,7 @@ public class Bill {
     }
 
     public void setOpenDate(LocalDate  openDate) {
-        openDate = openDate;
+        this.openDate = openDate;
     }
 
     public LocalDate  getPayDate() {
@@ -90,6 +90,6 @@ public class Bill {
     }
 
     public void setPayDate(LocalDate  payDate) {
-        payDate = payDate;
+        this.payDate = payDate;
     }
 }
