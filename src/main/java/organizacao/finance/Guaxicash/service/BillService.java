@@ -3,15 +3,14 @@ package organizacao.finance.Guaxicash.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import organizacao.finance.Guaxicash.entities.Bank;
 import organizacao.finance.Guaxicash.entities.Bill;
 import organizacao.finance.Guaxicash.entities.CreditCard;
 import organizacao.finance.Guaxicash.entities.Enums.BillPay;
-import organizacao.finance.Guaxicash.repositories.BankRepository;
 import organizacao.finance.Guaxicash.repositories.BillRepository;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -21,6 +20,9 @@ public class BillService {
 
     @Autowired
     private BillRepository billRepository;
+
+    // Use o fuso do usuário (São Paulo) para "hoje"
+    private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
 
     public List<Bill> findByUserId(UUID userId) {
         return billRepository.findByCreditCardAccountsUserUuid(userId);
@@ -73,10 +75,10 @@ public class BillService {
                         : BillPay.FUTURE_BILLS;
                 bill.setStatus(status);
                 bill.setValue(0.0);
+                bill.setValuepay(0.0);
                 toSave.add(bill);
             }
         }
-
         if (!toSave.isEmpty()) {
             billRepository.saveAll(toSave);
         }
@@ -87,4 +89,50 @@ public class BillService {
         return ym.atDay(safe);
 
     }
+
+    //Atualizar
+    public void rescheduleFutureBills(CreditCard card) {
+        LocalDate today = LocalDate.now(ZONE);
+
+        List<Bill> bills = billRepository.findByCreditCardAndStatusAndPayDateGreaterThanEqual(
+                card, BillPay.FUTURE_BILLS, today
+        );
+
+        int newCloseDay  = card.getCloseDate().getDayOfMonth();
+        int newDueDay    = card.getExpiryDate().getDayOfMonth();
+
+        for (Bill b : bills) {
+            // O "mês da fatura" continua sendo o mesmo do fechamento atual
+            YearMonth ym = YearMonth.from(b.getCloseDate());
+
+            // Novo fechamento no mesmo mês da fatura, ajustando ao tamanho do mês
+            LocalDate newCloseDate = atSafeDay(ym, newCloseDay);
+
+            // Novo vencimento no mês seguinte
+            YearMonth dueYm = ym.plusMonths(1);
+            LocalDate newPayDate = atSafeDay(dueYm, newDueDay);
+
+            // Novo "fechamento" do mês anterior para calcular a abertura
+            YearMonth prevYm = ym.minusMonths(1);
+            LocalDate prevClose = atSafeDay(prevYm, newCloseDay);
+            LocalDate newOpenDate = prevClose.plusDays(1);
+
+            // Por segurança: open <= close e pay >= close
+            if (newOpenDate.isAfter(newCloseDate)) {
+                // fallback: início do próprio mês (raro, se fechamento for dia 1)
+                newOpenDate = ym.atDay(1);
+            }
+            if (newPayDate.isBefore(newCloseDate)) {
+                // fallback: empurra o vencimento para o mesmo mês do fechamento (caso extremo)
+                newPayDate = newCloseDate;
+            }
+
+            b.setOpenDate(newOpenDate);
+            b.setCloseDate(newCloseDate);
+            b.setPayDate(newPayDate);
+        }
+
+        billRepository.saveAll(bills);
+    }
+
 }

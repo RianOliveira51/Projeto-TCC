@@ -4,10 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.Bank;
-import organizacao.finance.Guaxicash.entities.User;
-import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.BankRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 

@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import organizacao.finance.Guaxicash.entities.Flags;
-import organizacao.finance.Guaxicash.entities.Type;
 import organizacao.finance.Guaxicash.repositories.FlagsRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 

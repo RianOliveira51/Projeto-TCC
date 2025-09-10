@@ -1,18 +1,16 @@
 package organizacao.finance.Guaxicash.resource;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import organizacao.finance.Guaxicash.entities.Bank;
 import organizacao.finance.Guaxicash.entities.Bill;
-import organizacao.finance.Guaxicash.entities.Type;
+import organizacao.finance.Guaxicash.entities.Enums.BillPay;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.BillRepository;
-import organizacao.finance.Guaxicash.repositories.TypeRepository;
 import organizacao.finance.Guaxicash.service.BillService;
-import organizacao.finance.Guaxicash.service.TypeService;
 import organizacao.finance.Guaxicash.service.UserService;
 
 import java.util.List;
@@ -29,13 +27,7 @@ public class BillResource {
     @Autowired
     private UserService userService;
 
-    @PostMapping("/create")
-    public ResponseEntity<Bill> create(@RequestBody Bill bill) {
-        bill = billService.insert(bill);
-        return ResponseEntity.ok(bill);
-    }
-
-    @GetMapping("/my")
+    @GetMapping()
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Bill>> findMyBills(Authentication authentication) {
         UUID userId;
@@ -45,15 +37,37 @@ public class BillResource {
             userId = u.getUuid();
         } else {
             String email = authentication.getName();
-            User u = (User) userService.loadUserByUsername(email); // seu UserService implementa UserDetailsService
+            User u = (User) userService.loadUserByUsername(email);
             userId = u.getUuid();
         }
 
         return ResponseEntity.ok(billService.findByUserId(userId));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<List<Bill>> findByCard(@PathVariable UUID cardId) {
+    @GetMapping("/{cardId}")
+    public ResponseEntity<List<Bill>> findByCard(@PathVariable("cardId") UUID cardId) {
         return ResponseEntity.ok(billService.findByCreditCard(cardId));
+    }
+
+    // GET /bill?status=PENDING
+    @GetMapping(params = "status")
+    public ResponseEntity<List<Bill>> listByStatus(
+            @RequestParam BillPay status,
+            @RequestParam(required = false) UUID creditCardId
+    ) {
+        // Opcional: ordenar por payDate ASC (remova se não quiser ordenar)
+        Sort sort = Sort.by("payDate").ascending();
+
+        List<Bill> list = (creditCardId == null)
+                ? billRepository.findByStatus(status, sort)
+                : billRepository.findByCreditCard_UuidAndStatus(creditCardId, status, sort);
+
+        return ResponseEntity.ok(list);
+    }
+
+    // GET bill/search?status=PENDING,PAID
+    @GetMapping("/search")
+    public ResponseEntity<List<Bill>> listByStatuses(@RequestParam List<BillPay> status) {
+        return ResponseEntity.ok(billRepository.findByStatusIn(status, Sort.by("payDate").ascending()));
     }
 }

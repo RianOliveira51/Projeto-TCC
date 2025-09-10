@@ -12,9 +12,6 @@ import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.CreditCard;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.entities.User;
-// ajuste o import abaixo conforme o seu enum
-
-
 import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.BillRepository;
 import organizacao.finance.Guaxicash.repositories.CreditCardRepository;
@@ -37,6 +34,8 @@ public class CreditCardService {
     private ApplicationEventPublisher publisher;
     @Autowired
     private BillRepository billRepository;
+    @Autowired
+    private BillService billService;
 
     private boolean isAdmin(User me) {
         return me.getRole() == UserRole.ADMIN;
@@ -81,50 +80,49 @@ public class CreditCardService {
 
         CreditCard saved = creditCardRepository.save(card);
 
-        // >>> evento SÍNCRONO após salvar (mesma transação)
+        //evento SÍNCRONO após salvar (mesma transação)
         publisher.publishEvent(new CreditCardCreatedEvent(this, saved.getUuid()));
 
         return saved;
 
     }
 
-
-    public CreditCard update(UUID id, CreditCard updated) {
+    @Transactional
+    public CreditCard updateCard(UUID id, CreditCard payload) {
         User me = securityService.obterUserLogin();
 
         if (!isAdmin(me) && !creditCardRepository.existsByUuidAndAccounts_User(id, me)) {
             throw new AccessDeniedException("Você não pode alterar este cartão.");
         }
 
-        try {
-            CreditCard entity = creditCardRepository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundExeption(id));
+        CreditCard persisted = creditCardRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Cartão não encontrado"));
 
-            // Se trocar a account no payload, admin pode sempre; user comum só se for dele
-            if (updated.getAccounts() != null && updated.getAccounts().getUuid() != null) {
-                UUID newAccId = updated.getAccounts().getUuid();
-                Accounts newAcc = accountsRepository.findById(newAccId)
-                        .orElseThrow(() -> new ResourceNotFoundExeption(newAccId));
+        boolean closeChanged  = payload.getCloseDate()  != null
+                && !payload.getCloseDate().equals(persisted.getCloseDate());
+        boolean expiryChanged = payload.getExpiryDate() != null
+                && !payload.getExpiryDate().equals(persisted.getExpiryDate());
 
-                if (!isAdmin(me) && !newAcc.getUser().getUuid().equals(me.getUuid())) {
-                    throw new AccessDeniedException("A nova conta não pertence ao usuário autenticado.");
-                }
-                entity.setAccounts(newAcc);
-            }
+        boolean bothDatesChanged = closeChanged && expiryChanged;
 
-            entity.setLimite(updated.getLimite());
-            entity.setDescription(updated.getDescription());
-            entity.setCloseDate(updated.getCloseDate());
-            entity.setExpiryDate(updated.getExpiryDate());
-            if (updated.getFlags() != null) {
-                entity.setFlags(updated.getFlags());
-            }
+        // ---- Atualizar outros campos, se informados ----
+        if (payload.getLimite() != null)         persisted.setLimite(payload.getLimite());
+        if (payload.getDescription() != null)    persisted.setDescription(payload.getDescription());
+        if (payload.getFlags() != null)          persisted.setFlags(payload.getFlags());
+        if (payload.getAccounts() != null)       persisted.setAccounts(payload.getAccounts());
 
-            return creditCardRepository.save(entity);
+        // ---- Atualizar datas apenas se vierem (parcial é permitido) ----
+        if (payload.getCloseDate() != null)      persisted.setCloseDate(payload.getCloseDate());
+        if (payload.getExpiryDate() != null)     persisted.setExpiryDate(payload.getExpiryDate());
 
-        } catch (EntityNotFoundException e) {
-            throw new ResourceNotFoundExeption(id);
+        CreditCard saved = creditCardRepository.save(persisted);
+
+        // ---- Recalendarizar faturas somente se as DUAS datas foram alteradas ----
+        if (bothDatesChanged) {
+            billService.rescheduleFutureBills(saved);
         }
+
+        return saved;
     }
 
     @Transactional

@@ -33,7 +33,7 @@ public class CreditCardResource {
 
     @PutMapping("/{id}")
     public ResponseEntity<CreditCard> update(@PathVariable UUID id, @RequestBody CreditCard creditCard){
-        return ResponseEntity.ok(creditCardService.update(id, creditCard));
+        return ResponseEntity.ok(creditCardService.updateCard(id, creditCard));
     }
 
     @DeleteMapping("/{id}")
@@ -41,4 +41,6 @@ public class CreditCardResource {
         creditCardService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+
 }

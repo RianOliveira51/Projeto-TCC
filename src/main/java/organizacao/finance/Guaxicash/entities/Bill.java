@@ -13,6 +13,7 @@ public class Bill {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID uuid;
     private Double value;
+    private Double valuepay;
     @Column(name = "status", nullable = false)
     private BillPay status;
     private LocalDate closeDate;
@@ -23,14 +24,19 @@ public class Bill {
     @JoinColumn(name = "creditCard_id")
     private CreditCard creditCard;
 
-    public Bill(UUID uuid, Double value, BillPay billPay, LocalDate closeDate, LocalDate  openDate, LocalDate  PayDate, CreditCard creditCard) {
+    public Bill(UUID uuid, Double value,Double valuepay, BillPay billPay, LocalDate closeDate, LocalDate  openDate, LocalDate  PayDate, CreditCard creditCard) {
         this.uuid = uuid;
         this.value = value;
+        this.valuepay = valuepay;
         this.status = billPay;
         this.closeDate = closeDate;
         this.openDate = openDate;
         this.payDate = PayDate;
         this.creditCard = creditCard;
+    }
+
+    public Bill() {
+
     }
 
     public Double getValue() {
@@ -49,8 +55,14 @@ public class Bill {
         this.status = status;
     }
 
-    public Bill() {
 
+
+    public Double getValuepay() {
+        return valuepay;
+    }
+
+    public void setValuepay(Double valuepay) {
+        this.valuepay = valuepay;
     }
 
     public UUID getUuid() {
