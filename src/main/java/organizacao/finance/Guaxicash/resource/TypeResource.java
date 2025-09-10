@@ -6,9 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.entities.Bank;
 import organizacao.finance.Guaxicash.entities.Type;
-import organizacao.finance.Guaxicash.repositories.BankRepository;
 import organizacao.finance.Guaxicash.repositories.TypeRepository;
-import organizacao.finance.Guaxicash.service.BankService;
 import organizacao.finance.Guaxicash.service.TypeService;
 
 import java.util.List;

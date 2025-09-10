@@ -13,7 +13,10 @@ public class CreditCardBill {
     private UUID uuid;
     private Double value;
     private String description;
-    private Date RegistrationDate;
+    private Date registrationDate;
+    private String Installments;
+    private int Numberinstallments;
+
     @ManyToOne
     @JoinColumn(name = "id_credit_card")
     private CreditCard creditCard;
@@ -28,11 +31,13 @@ public class CreditCardBill {
 
     }
 
-    public CreditCardBill(UUID uuid, Double value, String description, Date registrationDate, CreditCard creditCard, Bill bill, Category category) {
+    public CreditCardBill(UUID uuid, Double value, String description, Date registrationDate,String Installments,int Numberinstallments, CreditCard creditCard, Bill bill, Category category) {
         this.uuid = uuid;
         this.value = value;
         this.description = description;
-        RegistrationDate = registrationDate;
+        this.registrationDate = registrationDate;
+        this.Installments = Installments;
+        this.Numberinstallments = Numberinstallments;
         this.creditCard = creditCard;
         this.bill = bill;
         this.category = category;
@@ -63,11 +68,27 @@ public class CreditCardBill {
     }
 
     public Date getRegistrationDate() {
-        return RegistrationDate;
+        return registrationDate;
     }
 
     public void setRegistrationDate(Date registrationDate) {
-        RegistrationDate = registrationDate;
+        this.registrationDate = registrationDate;
+    }
+
+    public String getInstallments() {
+        return Installments;
+    }
+
+    public void setInstallments(String installments) {
+        Installments = installments;
+    }
+
+    public int getNumberinstallments() {
+        return Numberinstallments;
+    }
+
+    public void setNumberinstallments(int numberinstallments) {
+        Numberinstallments = numberinstallments;
     }
 
     public CreditCard getCreditCard() {

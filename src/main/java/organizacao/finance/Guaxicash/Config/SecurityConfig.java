@@ -54,6 +54,9 @@ public class SecurityConfig {
                         //Bank
                         .requestMatchers(HttpMethod.POST, "/bank/create").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/flags/create").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/users").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/users/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/users/register").permitAll()
 
                         //Qualquer outra requisição, tem que estar autenticado.
                         .anyRequest().authenticated())

@@ -11,6 +11,7 @@ import organizacao.finance.Guaxicash.entities.Enums.BillPay;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface BillRepository extends JpaRepository<Bill, UUID> {
@@ -27,8 +28,12 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
     List<Bill> findByCreditCardAndStatusAndPayDateGreaterThanEqual(
             CreditCard creditCard, BillPay status, LocalDate from);
 
-    // (Opcional) mesmas consultas com ordenação
     List<Bill> findByStatus(BillPay status, Sort sort);
     List<Bill> findByCreditCard_UuidAndStatus(UUID creditCardId, BillPay status, Sort sort);
     List<Bill> findByStatusIn(List<BillPay> statuses, Sort sort);
+
+    // Encontra a fatura do cartão cujo closeDate está dentro do intervalo (mês alvo).
+    Optional<Bill> findFirstByCreditCardAndCloseDateBetween(
+            CreditCard creditCard, LocalDate startInclusive, LocalDate endInclusive
+    );
 }
