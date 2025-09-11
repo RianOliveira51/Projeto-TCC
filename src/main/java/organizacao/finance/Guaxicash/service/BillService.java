@@ -7,7 +7,10 @@ import organizacao.finance.Guaxicash.entities.Bill;
 import organizacao.finance.Guaxicash.entities.CreditCard;
 import organizacao.finance.Guaxicash.entities.Enums.BillPay;
 import organizacao.finance.Guaxicash.repositories.BillRepository;
+import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -133,6 +136,40 @@ public class BillService {
         }
 
         billRepository.saveAll(bills);
+    }
+
+
+    @Transactional
+    public Bill registerPayment(UUID billId, Double amount) {
+        if (amount == null) throw new IllegalArgumentException("Informe o valor do pagamento.");
+        BigDecimal inc = BigDecimal.valueOf(amount).setScale(2, RoundingMode.HALF_UP);
+        if (inc.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("O pagamento deve ser maior que zero.");
+        }
+
+        Bill bill = billRepository.findById(billId)
+                .orElseThrow(() -> new ResourceNotFoundExeption(billId));
+
+        BigDecimal total   = BigDecimal.valueOf(bill.getValue()    == null ? 0.0 : bill.getValue()).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal current = BigDecimal.valueOf(bill.getValuepay() == null ? 0.0 : bill.getValuepay()).setScale(2, RoundingMode.HALF_UP);
+
+        if (total.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Fatura sem valor total definido.");
+        }
+
+        BigDecimal remaining = total.subtract(current); // quanto falta pagar
+        if (inc.compareTo(remaining) > 0) {
+            throw new IllegalArgumentException("Pagamento excede o valor restante da fatura. Falta pagar: " + remaining);
+        }
+
+        BigDecimal newPaid = current.add(inc).setScale(2, RoundingMode.HALF_UP);
+        bill.setValuepay(newPaid.doubleValue());
+
+        // Se quitou, marca como paga
+        if (newPaid.compareTo(total) == 0) {
+            bill.setStatus(BillPay.PAID);
+        }
+        return billRepository.save(bill);
     }
 
 }

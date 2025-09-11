@@ -10,6 +10,7 @@ import organizacao.finance.Guaxicash.entities.Bill;
 import organizacao.finance.Guaxicash.entities.Enums.BillPay;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.BillRepository;
+import organizacao.finance.Guaxicash.resource.dto.PaymentRequest;
 import organizacao.finance.Guaxicash.service.BillService;
 import organizacao.finance.Guaxicash.service.UserService;
 
@@ -55,7 +56,7 @@ public class BillResource {
             @RequestParam BillPay status,
             @RequestParam(required = false) UUID creditCardId
     ) {
-        // Opcional: ordenar por payDate ASC (remova se não quiser ordenar)
+        // Opcional: ordenar por payDate ASC
         Sort sort = Sort.by("payDate").ascending();
 
         List<Bill> list = (creditCardId == null)
@@ -70,4 +71,15 @@ public class BillResource {
     public ResponseEntity<List<Bill>> listByStatuses(@RequestParam List<BillPay> status) {
         return ResponseEntity.ok(billRepository.findByStatusIn(status, Sort.by("payDate").ascending()));
     }
+
+    @PostMapping("/payment/{billId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Bill> registerPayment(
+            @PathVariable UUID billId,
+            @RequestBody PaymentRequest body
+    ) {
+        Bill updated = billService.registerPayment(billId, body.amount());
+        return ResponseEntity.ok(updated);
+    }
+
 }
