@@ -1,7 +1,9 @@
 package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
+import org.springframework.cglib.core.Local;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.UUID;
 
@@ -13,7 +15,7 @@ public class CreditCardBill {
     private UUID uuid;
     private Double value;
     private String description;
-    private Date registrationDate;
+    private LocalDate registrationDate;
     private String Installments;
     private int Numberinstallments;
 
@@ -31,7 +33,7 @@ public class CreditCardBill {
 
     }
 
-    public CreditCardBill(UUID uuid, Double value, String description, Date registrationDate,String Installments,int Numberinstallments, CreditCard creditCard, Bill bill, Category category) {
+    public CreditCardBill(UUID uuid, Double value, String description, LocalDate registrationDate,String Installments,int Numberinstallments, CreditCard creditCard, Bill bill, Category category) {
         this.uuid = uuid;
         this.value = value;
         this.description = description;
@@ -67,11 +69,11 @@ public class CreditCardBill {
         this.description = description;
     }
 
-    public Date getRegistrationDate() {
+    public LocalDate getRegistrationDate() {
         return registrationDate;
     }
 
-    public void setRegistrationDate(Date registrationDate) {
+    public void setRegistrationDate(LocalDate registrationDate) {
         this.registrationDate = registrationDate;
     }
 

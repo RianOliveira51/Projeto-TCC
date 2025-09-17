@@ -27,6 +27,20 @@ public class CategoryResource {
         return ResponseEntity.ok(category);
     }
 
+    @GetMapping
+    public ResponseEntity<List<Category>> findAll(
+            @RequestParam(required = false) String earn // aceita "0/1/true/false"
+    ) {
+        List<Category> list;
+        if (earn == null) {
+            list = categoryService.findAll();
+        } else {
+            Boolean parsed = parseEarnNullable(earn);
+            list = categoryService.findByEarn(parsed);
+        }
+        return ResponseEntity.ok(list);
+    }
+
     @PutMapping({"/{id}"})
     @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<Category> updateBank(@PathVariable UUID id, @RequestBody Category category){
@@ -34,15 +48,18 @@ public class CategoryResource {
         return ResponseEntity.ok(updated);
     }
 
-    @GetMapping
-    public ResponseEntity<List<Category>> findAll() {
-        List<Category> list = categoryService.findAll();
-        return ResponseEntity.ok().body(list);
-    }
-
     @DeleteMapping(value = "/{id}")
     public ResponseEntity delete(@PathVariable UUID id){
         categoryService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private static Boolean parseEarnNullable(String v) {
+        String s = v.trim().toLowerCase();
+        return switch (s) {
+            case "1", "true", "t", "yes", "y" -> Boolean.TRUE;
+            case "0", "false", "f", "no", "n" -> Boolean.FALSE;
+            default -> throw new IllegalArgumentException("Parâmetro 'earn' inválido. Use 0/1 ou true/false.");
+        };
     }
 }

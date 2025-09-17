@@ -1,11 +1,8 @@
 package organizacao.finance.Guaxicash.service;
 
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.BeanWrapper;
-import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.access.AccessDeniedException;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.Config.SecurityService;
@@ -17,6 +14,7 @@ import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption
 import java.beans.PropertyDescriptor;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.*;
 
@@ -55,6 +53,28 @@ public class CreditCardBillService {
         }
         return creditCardBillRepository.findByUuidAndCreditCard_Accounts_User_Uuid(id, me.getUuid())
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
+    }
+
+    public List<CreditCardBill> searchByDate(String field, LocalDate from, LocalDate to, UUID creditCardId) {
+        if (from == null && to == null) throw new IllegalArgumentException("Informe ao menos uma data.");
+        if (from == null) from = to;
+        if (to == null)   to   = from;
+        if (to.isBefore(from)) throw new IllegalArgumentException("'to' não pode ser anterior a 'from'.");
+
+        var me = securityService.obterUserLogin();
+        boolean byRegistration = (field == null) || field.equalsIgnoreCase("registration");
+        Sort sort = byRegistration ? Sort.by("registrationDate").ascending()
+                : Sort.by("bill.payDate").ascending();
+
+        if (byRegistration) {
+            return (creditCardId == null)
+                    ? creditCardBillRepository.findByCreditCard_Accounts_User_UuidAndRegistrationDateBetween(me.getUuid(), from, to, sort)
+                    : creditCardBillRepository.findByCreditCard_UuidAndCreditCard_Accounts_User_UuidAndRegistrationDateBetween(creditCardId, me.getUuid(), from, to, sort);
+        } else {
+            return (creditCardId == null)
+                    ? creditCardBillRepository.findByCreditCard_Accounts_User_UuidAndBill_PayDateBetween(me.getUuid(), from, to, sort)
+                    : creditCardBillRepository.findByCreditCard_UuidAndCreditCard_Accounts_User_UuidAndBill_PayDateBetween(creditCardId, me.getUuid(), from, to, sort);
+        }
     }
 
     @Transactional

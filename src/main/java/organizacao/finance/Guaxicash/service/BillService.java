@@ -24,7 +24,6 @@ public class BillService {
     @Autowired
     private BillRepository billRepository;
 
-    // Use o fuso do usuário (São Paulo) para "hoje"
     private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
 
     public List<Bill> findByUserId(UUID userId) {
@@ -40,10 +39,10 @@ public class BillService {
 
     @Transactional
     public void generateBillsUntilDec2025(CreditCard card) {
-        // Datas base
+
         LocalDate today = LocalDate.now();
-        YearMonth startYm = YearMonth.from(today);     // começa no mês atual
-        YearMonth endYm   = YearMonth.of(2025, 12);    // vai até dezembro/2025
+        YearMonth startYm = YearMonth.from(today);
+        YearMonth endYm   = YearMonth.of(2025, 12);
 
         // Dias relevantes (apenas o dia do mês interessa)
         int closeDay = card.getCloseDate().getDayOfMonth();   // dia de fechamento

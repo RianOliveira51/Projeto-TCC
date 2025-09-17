@@ -2,6 +2,7 @@ package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.UUID;
 
@@ -14,8 +15,8 @@ public class Reciphe {
     private UUID uuid;
     private Float value;
     private String description;
-    private Date dateRegistration;
-    private Date datePay;
+    private LocalDate dateRegistration;
+    private LocalDate datePay;
     @ManyToOne
     @JoinColumn(name = "id_category")
     private Category category;
@@ -27,7 +28,7 @@ public class Reciphe {
 
     }
 
-    public Reciphe(UUID uuid, Float value, String description,Date dateRegistration,Date datePay,  Category category, Accounts accounts) {
+    public Reciphe(UUID uuid, Float value, String description,LocalDate dateRegistration,LocalDate datePay,  Category category, Accounts accounts) {
         this.uuid = uuid;
         this.value = value;
         this.description = description;
@@ -36,7 +37,6 @@ public class Reciphe {
         this.category = category;
         this.accounts = accounts;
     }
-
 
     public UUID getUuid() {
         return uuid;
@@ -62,19 +62,19 @@ public class Reciphe {
         this.description = description;
     }
 
-    public Date getDateRegistration() {
+    public LocalDate getDateRegistration() {
         return dateRegistration;
     }
 
-    public void setDateRegistration(Date dateRegistration) {
+    public void setDateRegistration(LocalDate dateRegistration) {
         this.dateRegistration = dateRegistration;
     }
 
-    public Date getDatePay() {
+    public LocalDate getDatePay() {
         return datePay;
     }
 
-    public void setDatePay(Date datePay) {
+    public void setDatePay(LocalDate datePay) {
         this.datePay = datePay;
     }
 

@@ -17,13 +17,17 @@ public class CategoryService {
     @Autowired
     private CategoryRepository categoryRepository;
 
-
     public List<Category> findAll() {return categoryRepository.findAll();
     }
 
     public Category findById(UUID id) {
         Optional<Category> category = categoryRepository.findById(id);
         return category.orElseThrow(() -> new ResourceNotFoundExeption(id));
+    }
+
+    // novo: filtrar por earn (true=receber, false=despesa)
+    public List<Category> findByEarn(boolean earn) {
+        return categoryRepository.findByEarn(earn);
     }
 
     public Category insert(Category category) {
@@ -41,8 +45,12 @@ public class CategoryService {
         }
     }
 
-    private void updateData(Category entity, Category updatedAccount) {
-        entity.setDescription(updatedAccount.getDescription());
+    private void updateData(Category entity, Category updated) {
+        if (updated.getDescription() != null) {
+            entity.setDescription(updated.getDescription());
+        }
+        // permite atualizar o earn (despesa/receber)
+        entity.setEarn(updated.isEarn());
     }
 
     public void delete(UUID id){

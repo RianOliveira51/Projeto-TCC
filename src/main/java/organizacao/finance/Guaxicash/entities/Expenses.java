@@ -2,6 +2,7 @@ package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.UUID;
 
@@ -13,8 +14,7 @@ public class Expenses {
     private UUID uuid;
     private Float value;
     private String description;
-    private Date dateRegistration;
-    private Date PayDate;
+    private LocalDate payDate;
     @ManyToOne
     @JoinColumn(name = "id_category")
     private Category category;
@@ -26,12 +26,11 @@ public class Expenses {
 
     }
 
-    public Expenses(UUID uuid, Float value, String description, Date dateRegistration, Date PayDate, Category category, Accounts accounts) {
+    public Expenses(UUID uuid, Float value, String description, LocalDate payDate, Category category, Accounts accounts) {
         this.uuid = uuid;
         this.value = value;
         this.description = description;
-        this.dateRegistration = dateRegistration;
-        this.PayDate = PayDate;
+        this.payDate = payDate;
         this.category = category;
         this.accounts = accounts;
     }
@@ -60,20 +59,13 @@ public class Expenses {
         this.description = description;
     }
 
-    public Date getDateRegistration() {
-        return dateRegistration;
+
+    public LocalDate getPayDate() {
+        return payDate;
     }
 
-    public void setDateRegistration(Date dateRegistration) {
-        this.dateRegistration = dateRegistration;
-    }
-
-    public Date getPayDate() {
-        return PayDate;
-    }
-
-    public void setPayDate(Date payDate) {
-        this.PayDate = payDate;
+    public void setPayDate(LocalDate payDate) {
+        this.payDate = payDate;
     }
 
     public Category getCategory() {

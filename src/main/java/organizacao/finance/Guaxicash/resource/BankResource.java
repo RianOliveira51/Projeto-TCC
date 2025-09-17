@@ -28,7 +28,6 @@ public class BankResource {
         return ResponseEntity.ok(bank);
     }
 
-
     @PutMapping({"/{id}"})
     @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<Bank> updateBank(@PathVariable UUID id, @RequestBody Bank bank){

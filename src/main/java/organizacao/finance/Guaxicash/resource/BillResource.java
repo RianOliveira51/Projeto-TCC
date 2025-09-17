@@ -56,7 +56,6 @@ public class BillResource {
             @RequestParam BillPay status,
             @RequestParam(required = false) UUID creditCardId
     ) {
-        // Opcional: ordenar por payDate ASC
         Sort sort = Sort.by("payDate").ascending();
 
         List<Bill> list = (creditCardId == null)

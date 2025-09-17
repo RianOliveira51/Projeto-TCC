@@ -1,0 +1,177 @@
+package organizacao.finance.Guaxicash.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import organizacao.finance.Guaxicash.Config.SecurityService;
+import organizacao.finance.Guaxicash.entities.Accounts;
+import organizacao.finance.Guaxicash.entities.Category;
+import organizacao.finance.Guaxicash.entities.Enums.UserRole;
+import organizacao.finance.Guaxicash.entities.Expenses;
+import organizacao.finance.Guaxicash.entities.User;
+import organizacao.finance.Guaxicash.repositories.AccountsRepository;
+import organizacao.finance.Guaxicash.repositories.CategoryRepository;
+import organizacao.finance.Guaxicash.repositories.ExpenseRepository;
+import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class ExpenseService {
+    @Autowired
+    private ExpenseRepository expenseRepository;
+    @Autowired private
+    AccountsRepository accountsRepository;
+    @Autowired private
+    CategoryRepository categoryRepository;
+    @Autowired private SecurityService securityService;
+
+    private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
+
+    public List<Expenses> findAll() {
+        User me = securityService.obterUserLogin();
+        if (isAdmin(me)) return expenseRepository.findAll();
+        return expenseRepository.findByAccounts_User(me);
+    }
+
+    public Expenses findById(UUID id) {
+        User me = securityService.obterUserLogin();
+        return isAdmin(me)
+                ? expenseRepository.findById(id).orElseThrow(() -> new ResourceNotFoundExeption(id))
+                : expenseRepository.findByUuidAndAccounts_User_Uuid(id, me.getUuid())
+                .orElseThrow(() -> new ResourceNotFoundExeption(id));
+    }
+
+    public List<Expenses> searchByPayDate(LocalDate from, LocalDate to) {
+        if (from == null && to == null) throw new IllegalArgumentException("Informe ao menos uma data.");
+        if (from == null) from = to;
+        if (to == null)   to   = from;
+        if (to.isBefore(from)) throw new IllegalArgumentException("'to' não pode ser anterior a 'from'.");
+
+        var me = securityService.obterUserLogin();
+        return expenseRepository.findByAccounts_User_UuidAndPayDateBetween(
+                me.getUuid(), from, to, Sort.by("payDate").ascending()
+        );
+    }
+
+    @Transactional
+    public Expenses insert(Expenses expense) {
+        if (expense.getValue() == null || expense.getValue() <= 0f) {
+            throw new IllegalArgumentException("O valor da despesa deve ser maior que zero.");
+        }
+
+        UUID categoryId = expense.getCategory().getUuid();
+        UUID accountId  = expense.getAccounts().getUuid();
+
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundExeption(categoryId));
+        Accounts accounts = accountsRepository.findById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundExeption(accountId));
+
+        // segurança: dono ou ADMIN
+        User me = securityService.obterUserLogin();
+        if (!isAdmin(me) && !accounts.getUser().getUuid().equals(me.getUuid())) {
+            throw new AccessDeniedException("Conta não pertence ao usuário autenticado.");
+        }
+
+        expense.setCategory(category);
+        expense.setAccounts(accounts);
+
+        // subtrai do saldo
+        addToBalance(accounts, bd(expense.getValue()).negate());
+        accountsRepository.save(accounts);
+
+        return expenseRepository.save(expense);
+    }
+
+    // ===== UPDATE (estorna antigo e aplica novo) =====
+    @Transactional
+    public Expenses update(UUID id, Expenses payload) {
+        User me = securityService.obterUserLogin();
+
+        Expenses persisted = isAdmin(me)
+                ? expenseRepository.findById(id).orElseThrow(() -> new ResourceNotFoundExeption(id))
+                : expenseRepository.findByUuidAndAccounts_User_Uuid(id, me.getUuid())
+                .orElseThrow(() -> new ResourceNotFoundExeption(id));
+
+        Accounts oldAcc = persisted.getAccounts();
+        BigDecimal oldVal = bd(persisted.getValue());
+
+        // Troca de conta (se veio)
+        if (payload.getAccounts() != null && payload.getAccounts().getUuid() != null) {
+            Accounts newAcc = accountsRepository.findById(payload.getAccounts().getUuid())
+                    .orElseThrow(() -> new ResourceNotFoundExeption(payload.getAccounts().getUuid()));
+            if (!isAdmin(me) && !newAcc.getUser().getUuid().equals(me.getUuid())) {
+                throw new AccessDeniedException("Conta não pertence ao usuário autenticado.");
+            }
+            persisted.setAccounts(newAcc);
+        }
+
+        // Troca de categoria (opcional)
+        if (payload.getCategory() != null && payload.getCategory().getUuid() != null) {
+            Category cat = categoryRepository.findById(payload.getCategory().getUuid())
+                    .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCategory().getUuid()));
+            persisted.setCategory(cat);
+        }
+
+        // Campos simples (parcial)
+        if (payload.getDescription() != null)        persisted.setDescription(payload.getDescription());
+        if (payload.getPayDate() != null)            persisted.setPayDate(payload.getPayDate());
+        if (payload.getValue() != null)              persisted.setValue(payload.getValue());
+
+        BigDecimal newVal = bd(persisted.getValue());
+        if (newVal.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("O valor da despesa deve ser maior que zero.");
+        }
+
+        Accounts newAcc = persisted.getAccounts();
+
+        if (!oldAcc.getUuid().equals(newAcc.getUuid())) {
+            // mudou de conta: estorna na antiga (+oldVal) e aplica na nova (-newVal)
+            addToBalance(oldAcc, oldVal);                 // estorna
+            addToBalance(newAcc, newVal.negate());        // aplica
+            accountsRepository.save(oldAcc);
+            accountsRepository.save(newAcc);
+        } else {
+            // mesma conta: aplica delta = (-new) - (-old) = old - new
+            addToBalance(oldAcc, oldVal.subtract(newVal));
+            accountsRepository.save(oldAcc);
+        }
+
+        return expenseRepository.save(persisted);
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        User me = securityService.obterUserLogin();
+
+        Expenses entity = isAdmin(me)
+                ? expenseRepository.findById(id).orElseThrow(() -> new ResourceNotFoundExeption(id))
+                : expenseRepository.findByUuidAndAccounts_User_Uuid(id, me.getUuid())
+                .orElseThrow(() -> new ResourceNotFoundExeption(id));
+
+        Accounts acc = entity.getAccounts();
+        addToBalance(acc, bd(entity.getValue())); // estorno (+valor)
+        accountsRepository.save(acc);
+
+        expenseRepository.delete(entity);
+    }
+
+
+    private static BigDecimal bd(Float v) {
+        double d = (v == null ? 0.0 : v.doubleValue());
+        return BigDecimal.valueOf(d).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void addToBalance(Accounts acc, BigDecimal delta) {
+        BigDecimal cur = BigDecimal.valueOf(acc.getBalance() == null ? 0.0 : acc.getBalance())
+                .setScale(2, RoundingMode.HALF_UP);
+        acc.setBalance(cur.add(delta).setScale(2, RoundingMode.HALF_UP).floatValue());
+    }
+}

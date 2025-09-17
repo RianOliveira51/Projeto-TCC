@@ -4,12 +4,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import organizacao.finance.Guaxicash.entities.Accounts;
-import organizacao.finance.Guaxicash.entities.Bill;
 import organizacao.finance.Guaxicash.entities.Flags;
-import organizacao.finance.Guaxicash.repositories.BillRepository;
 import organizacao.finance.Guaxicash.repositories.FlagsRepository;
-import organizacao.finance.Guaxicash.service.BillService;
 import organizacao.finance.Guaxicash.service.FlagsService;
 
 import java.util.List;

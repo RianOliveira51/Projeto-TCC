@@ -12,14 +12,16 @@ public class Category {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID uuid;
     private String description;
+    private boolean earn;
 
     public Category() {
 
     }
 
-    public Category(UUID uuid, String description) {
+    public Category(UUID uuid, String description, boolean earn) {
         this.uuid = uuid;
         this.description = description;
+        this.earn = earn;
     }
 
     public UUID getUuid() {
@@ -36,5 +38,13 @@ public class Category {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public boolean isEarn() {
+        return earn;
+    }
+
+    public void setEarn(boolean earn) {
+        this.earn = earn;
     }
 }
