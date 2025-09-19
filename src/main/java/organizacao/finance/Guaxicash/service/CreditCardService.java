@@ -105,19 +105,16 @@ public class CreditCardService {
 
         boolean bothDatesChanged = closeChanged && expiryChanged;
 
-        // ---- Atualizar outros campos, se informados ----
         if (payload.getLimite() != null)         persisted.setLimite(payload.getLimite());
         if (payload.getDescription() != null)    persisted.setDescription(payload.getDescription());
         if (payload.getFlags() != null)          persisted.setFlags(payload.getFlags());
         if (payload.getAccounts() != null)       persisted.setAccounts(payload.getAccounts());
 
-        // ---- Atualizar datas apenas se vierem (parcial é permitido) ----
         if (payload.getCloseDate() != null)      persisted.setCloseDate(payload.getCloseDate());
         if (payload.getExpiryDate() != null)     persisted.setExpiryDate(payload.getExpiryDate());
 
         CreditCard saved = creditCardRepository.save(persisted);
 
-        // ---- Recalendarizar faturas somente se as DUAS datas foram alteradas ----
         if (bothDatesChanged) {
             billService.rescheduleFutureBills(saved);
         }
@@ -137,7 +134,6 @@ public class CreditCardService {
             // Fallback explícito (idempotente):
             billRepository.deleteByCreditCardUuid(id);
 
-            // Agora apaga o cartão (se mapeado com cascade remove, também funcionaria sem a linha acima)
             creditCardRepository.deleteById(id);
         } catch (ResourceNotFoundExeption e) {
             throw new ResourceNotFoundExeption(id);

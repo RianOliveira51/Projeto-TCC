@@ -1,4 +1,4 @@
-package organizacao.finance.Guaxicash.resource.dto;
+package organizacao.finance.Guaxicash.entities.dto;
 
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 

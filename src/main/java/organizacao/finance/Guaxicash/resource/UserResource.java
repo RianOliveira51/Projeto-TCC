@@ -14,10 +14,11 @@ import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.Config.TokenService;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
+import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
-import organizacao.finance.Guaxicash.resource.dto.AuthenticationDTO;
-import organizacao.finance.Guaxicash.resource.dto.LoginReponseDTO;
-import organizacao.finance.Guaxicash.resource.dto.RegisterDTO;
+import organizacao.finance.Guaxicash.entities.dto.AuthenticationDTO;
+import organizacao.finance.Guaxicash.entities.dto.LoginReponseDTO;
+import organizacao.finance.Guaxicash.entities.dto.RegisterDTO;
 import organizacao.finance.Guaxicash.service.UserService;
 
 import java.util.List;
@@ -56,7 +57,8 @@ public class UserResource {
     public ResponseEntity<?> register(@RequestBody @Validated RegisterDTO data) {
         // Verifica se e-mail já está em uso
         if (userRepository.existsByEmail(data.email())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("E-mail já cadastrado.");
+           var messagem = new HttpResponseDTO("Email Já cadastrado");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(messagem);
         }
 
         if (data.role().equals(UserRole.ADMIN)) {
@@ -68,11 +70,11 @@ public class UserResource {
         }
 
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, data.role());
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER);
 
-        userRepository.save(newUser);
-
-        return ResponseEntity.ok("Usuário registrado com sucesso.");
+        //userRepository.save(newUser);
+        var messagem = new HttpResponseDTO("Usuário registrado com sucesso.");
+        return ResponseEntity.ok(messagem);
     }
 
     @GetMapping

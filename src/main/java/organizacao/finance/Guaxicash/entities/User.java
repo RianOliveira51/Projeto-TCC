@@ -31,7 +31,7 @@ public class User implements UserDetails {
             this.email = email;
             this.phone = phone;
             this.password = password;
-            this.role = role;
+            this.role = UserRole.USER;
         }
 
         public UUID getUuid () {

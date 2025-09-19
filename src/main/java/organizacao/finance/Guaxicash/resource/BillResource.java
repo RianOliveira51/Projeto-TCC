@@ -10,7 +10,7 @@ import organizacao.finance.Guaxicash.entities.Bill;
 import organizacao.finance.Guaxicash.entities.Enums.BillPay;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.BillRepository;
-import organizacao.finance.Guaxicash.resource.dto.PaymentRequest;
+import organizacao.finance.Guaxicash.entities.dto.PaymentRequest;
 import organizacao.finance.Guaxicash.service.BillService;
 import organizacao.finance.Guaxicash.service.UserService;
 
