@@ -44,13 +44,16 @@ public class UserResource {
     private TokenService tokenService;
 
     @PostMapping("/login")
-    public ResponseEntity login(@RequestBody @Validated AuthenticationDTO data){
-        var usernamePassword = new UsernamePasswordAuthenticationToken(data.email(), data.password());
-        var auth = this.authenticationManager.authenticate(usernamePassword);
-
-        var token = tokenService.generateToken((User)auth.getPrincipal());
-
-        return ResponseEntity.ok(new LoginReponseDTO(token));
+    public ResponseEntity<?> login(@RequestBody @Validated AuthenticationDTO data) {
+        try {
+            var usernamePassword = new UsernamePasswordAuthenticationToken(data.email(), data.password());
+            Authentication auth = this.authenticationManager.authenticate(usernamePassword);
+            String token = tokenService.generateToken((User) auth.getPrincipal());
+            return ResponseEntity.ok(new LoginReponseDTO(token,"Login feito com sucesso, Bem-vindo ao guaxicash"));
+        } catch (org.springframework.security.core.AuthenticationException ex) {
+            var messagem = new HttpResponseDTO("Usuario não autenticado");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(messagem);
+        }
     }
 
     @PostMapping("/register")
@@ -60,21 +63,31 @@ public class UserResource {
            var messagem = new HttpResponseDTO("Email Já cadastrado");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(messagem);
         }
-
-        if (data.role().equals(UserRole.ADMIN)) {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (!(auth.getPrincipal() instanceof User userAuth) || userAuth.getRole() != UserRole.ADMIN) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body("Apenas administradores podem criar outros administradores.");
-            }
-        }
-
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
         User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER);
+        newUser.setRole(UserRole.USER);
 
-        //userRepository.save(newUser);
+        userRepository.save(newUser);
         var messagem = new HttpResponseDTO("Usuário registrado com sucesso.");
         return ResponseEntity.ok(messagem);
+    }
+
+    @PostMapping("/register/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> registerByAdmin(@RequestBody @Validated RegisterDTO data) {
+        if (userRepository.existsByEmail(data.email())) {
+            var msg = new HttpResponseDTO("Email Já cadastrado");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(msg);
+        }
+
+        var role = (data.role() == null) ? UserRole.USER : data.role(); // pode ser USER ou ADMIN
+        String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, role);
+        newUser.setRole(role);
+
+        userRepository.save(newUser);
+        var msg = new HttpResponseDTO("Usuário criado pelo admin com perfil " + role);
+        return ResponseEntity.status(HttpStatus.CREATED).body(msg);
     }
 
     @GetMapping

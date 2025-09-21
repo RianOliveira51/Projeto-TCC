@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.Bank;
+import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 import organizacao.finance.Guaxicash.service.AccountsService;
 
 import java.util.List;
@@ -20,6 +21,7 @@ public class AccountsResource {
     @PostMapping("/create")
     public ResponseEntity<Accounts> createAccount(@RequestBody Accounts accounts) {
         Accounts created = accountsService.insert(accounts);
+        var messagem = new HttpResponseDTO("Usuario não autenticado");
         return ResponseEntity.ok(created);
     }
 
