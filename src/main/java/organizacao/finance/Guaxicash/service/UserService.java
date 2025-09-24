@@ -14,6 +14,7 @@ import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -91,5 +92,6 @@ public class UserService implements UserDetailsService {
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         return userRepository.findByEmail(email);
     }
+
 
 }

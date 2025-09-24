@@ -48,15 +48,18 @@ public class ExpenseService {
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
     }
 
-    public List<Expenses> searchByPayDate(LocalDate from, LocalDate to) {
+    public List<Expenses> searchBydateRegistration(LocalDate from, LocalDate to) {
         if (from == null && to == null) throw new IllegalArgumentException("Informe ao menos uma data.");
         if (from == null) from = to;
         if (to == null)   to   = from;
         if (to.isBefore(from)) throw new IllegalArgumentException("'to' não pode ser anterior a 'from'.");
 
         var me = securityService.obterUserLogin();
-        return expenseRepository.findByAccounts_User_UuidAndPayDateBetween(
-                me.getUuid(), from, to, Sort.by("payDate").ascending()
+        return expenseRepository.findByAccounts_User_UuidAndDateRegistrationBetween(
+                me.getUuid(),
+                from,
+                to,
+                Sort.by("dateRegistration").ascending() // <-- aqui estava "payDate"
         );
     }
 
@@ -103,7 +106,7 @@ public class ExpenseService {
         Accounts oldAcc = persisted.getAccounts();
         BigDecimal oldVal = bd(persisted.getValue());
 
-        // Troca de conta (se veio)
+        // Troca de conta
         if (payload.getAccounts() != null && payload.getAccounts().getUuid() != null) {
             Accounts newAcc = accountsRepository.findById(payload.getAccounts().getUuid())
                     .orElseThrow(() -> new ResourceNotFoundExeption(payload.getAccounts().getUuid()));
@@ -113,16 +116,16 @@ public class ExpenseService {
             persisted.setAccounts(newAcc);
         }
 
-        // Troca de categoria (opcional)
+        // Troca de categoria
         if (payload.getCategory() != null && payload.getCategory().getUuid() != null) {
             Category cat = categoryRepository.findById(payload.getCategory().getUuid())
                     .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCategory().getUuid()));
             persisted.setCategory(cat);
         }
 
-        // Campos simples (parcial)
+        // Campos simples
         if (payload.getDescription() != null)        persisted.setDescription(payload.getDescription());
-        if (payload.getPayDate() != null)            persisted.setPayDate(payload.getPayDate());
+        if (payload.getDateRegistration() != null)            persisted.setDateRegistration(payload.getDateRegistration());
         if (payload.getValue() != null)              persisted.setValue(payload.getValue());
 
         BigDecimal newVal = bd(persisted.getValue());

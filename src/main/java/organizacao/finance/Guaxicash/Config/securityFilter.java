@@ -1,5 +1,6 @@
 package organizacao.finance.Guaxicash.Config;
 
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,30 +20,40 @@ public class securityFilter extends OncePerRequestFilter {
 
 
     @Autowired
-    TokenService tokenService;
+    private TokenService tokenService;
 
     @Autowired
-    UserRepository userRepository;
-
+    private UserRepository userRepository;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        var token = this.recoverToken(request);
+    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+            throws ServletException, IOException {
+        String token = recoverToken(req);
         if (token != null) {
-            var subject = tokenService.validateToken(token);
-            UserDetails user = userRepository.findByEmail(subject);
+            try {
+                String subject = tokenService.validateAccessAndGetSubject(token);
+                UserDetails user = userRepository.findByEmail(subject);
+                var auth = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+                SecurityContextHolder.getContext().setAuthentication(auth);
 
-            var authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (com.auth0.jwt.exceptions.TokenExpiredException e) {
+                res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                res.setContentType("application/json");
+                res.getWriter().write("{\"message\":\"Sessão expirada. Faça login novamente.\"}");
+                return;
+            } catch (com.auth0.jwt.exceptions.JWTVerificationException e) {
+                res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                res.setContentType("application/json");
+                res.getWriter().write("{\"message\":\"Token inválido\"}");
+                return;
+            }
         }
-
-        filterChain.doFilter(request, response);
+        chain.doFilter(req, res);
     }
 
     private String recoverToken(HttpServletRequest request) {
         var authHeader = request.getHeader("Authorization");
-        if(authHeader == null) return null;
-        return authHeader.replace("Bearer ", "");
-
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
+        return authHeader.substring(7);
     }
 }

@@ -1,5 +1,6 @@
 package organizacao.finance.Guaxicash.resource;
 
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,11 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.Config.TokenService;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
-import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
+import organizacao.finance.Guaxicash.entities.dto.*;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
-import organizacao.finance.Guaxicash.entities.dto.AuthenticationDTO;
-import organizacao.finance.Guaxicash.entities.dto.LoginReponseDTO;
-import organizacao.finance.Guaxicash.entities.dto.RegisterDTO;
 import organizacao.finance.Guaxicash.service.UserService;
 
 import java.util.List;
@@ -46,13 +44,21 @@ public class UserResource {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody @Validated AuthenticationDTO data) {
         try {
-            var usernamePassword = new UsernamePasswordAuthenticationToken(data.email(), data.password());
-            Authentication auth = this.authenticationManager.authenticate(usernamePassword);
-            String token = tokenService.generateToken((User) auth.getPrincipal());
-            return ResponseEntity.ok(new LoginReponseDTO(token,"Login feito com sucesso, Bem-vindo ao guaxicash"));
-        } catch (org.springframework.security.core.AuthenticationException ex) {
-            var messagem = new HttpResponseDTO("Usuario não autenticado");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(messagem);
+            var auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(data.email(), data.password())
+            );
+            var user = (User) auth.getPrincipal();
+            String access = tokenService.generateAccessToken(user);
+
+            return ResponseEntity.ok(new LoginReponseDTO(
+                    access, "Login feito com sucesso, Bem-vindo ao Guaxicash"
+            ));
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new HttpResponseDTO("Usuário ou senha inválidos"));
+        } catch (org.springframework.security.core.AuthenticationException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new HttpResponseDTO("Usuário não autenticado"));
         }
     }
 

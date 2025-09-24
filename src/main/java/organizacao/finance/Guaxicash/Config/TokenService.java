@@ -1,18 +1,16 @@
 package organizacao.finance.Guaxicash.Config;
 
-
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.nimbusds.jose.JWSAlgorithm;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import organizacao.finance.Guaxicash.entities.User;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 
 @Service
 public class TokenService {
@@ -20,41 +18,62 @@ public class TokenService {
     @Value("${api.security.token.secret}")
     private String secret;
 
-    //gerar token
-    public String generateToken(User user) {
-        try{
-            //algortimo de geração de token
-            Algorithm algorithm =  Algorithm.HMAC256(secret);
-            //criando token
-            String token = JWT.create()
-                    //nome da aplicação
-                    .withIssuer("auth-api")
-                    //usuario
-                    .withSubject(user.getEmail())
-                    //tempo de expiração
-                    .withExpiresAt(genExpirationDate())
-                    .sign(algorithm);
-            return token;
-        }catch (JWTCreationException e){
-            throw new RuntimeException("Error white generating token", e);
-        }
+    @Value("${api.security.token.issuer}")
+    private String issuer;
+
+    @Value("${api.security.token.access-ttl-minutes}")
+    private long accessTtlMinutes;
+
+    private Algorithm alg() {
+        return Algorithm.HMAC256(secret);
     }
 
-    //validar token
+    public String generateAccessToken(User user) {
+        return buildToken(
+                user.getEmail(),
+                "access",
+                Instant.now().plus(accessTtlMinutes, ChronoUnit.MINUTES),
+                user.getName()
+        );
+    }
 
-    public String validateToken(String token) {
+    public String generateAccessToken(String subject) {
+        return buildToken(
+                subject,
+                "access",
+                Instant.now().plus(accessTtlMinutes, ChronoUnit.MINUTES),
+                null
+        );
+    }
+
+    public String validateAccessAndGetSubject(String accessToken) {
+        var decoded = verify(accessToken);
+        var typ = decoded.getClaim("typ").asString();
+        if (!"access".equals(typ)) throw new JWTVerificationException("Token não é de acesso");
+        return decoded.getSubject();
+    }
+
+    private com.auth0.jwt.interfaces.DecodedJWT verify(String token) {
+        return JWT.require(alg())
+                .withIssuer(issuer)
+                .build()
+                .verify(token);
+    }
+
+    private String buildToken(String subject, String typ, Instant exp, String name) {
         try {
-            Algorithm algorithm =  Algorithm.HMAC256(secret);
-            return JWT.require(algorithm)
-                    .withIssuer("auth-api")
-                    .build()
-                    .verify(token)
-                    .getSubject();
-        }catch(JWTVerificationException e){
-            throw new RuntimeException("");
+            var builder = JWT.create()
+                    .withIssuer(issuer)
+                    .withSubject(subject)
+                    .withClaim("typ", typ)
+                    .withIssuedAt(new Date())
+                    .withExpiresAt(Date.from(exp));
+
+            if (name != null) builder.withClaim("name", name);
+
+            return builder.sign(alg());
+        } catch (JWTCreationException e) {
+            throw new RuntimeException("Erro ao gerar token", e);
         }
-    }
-    private Instant genExpirationDate(){
-        return LocalDateTime.now().plusHours(10).toInstant(ZoneOffset.of("-03:00"));
     }
 }

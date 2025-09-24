@@ -17,7 +17,10 @@ import organizacao.finance.Guaxicash.repositories.TypeRepository;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -144,4 +147,19 @@ public class AccountsService {
     }
 
 
+    public Double totalBalanceOfLogged() {
+        User me = securityService.obterUserLogin();
+
+        var stream = (isAdmin(me)
+                ? accountsRepository.findAll().stream()
+                : accountsRepository.findByUser(me).stream())
+                .map(Accounts::getBalance)      // Stream<Double>
+                .filter(Objects::nonNull);
+
+        double sum = stream.mapToDouble(d -> d.doubleValue()).sum();
+
+        return BigDecimal.valueOf(sum)
+                .setScale(2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
 }

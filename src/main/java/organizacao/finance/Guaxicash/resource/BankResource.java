@@ -3,48 +3,54 @@ package organizacao.finance.Guaxicash.resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.entities.Bank;
-import organizacao.finance.Guaxicash.repositories.BankRepository;
+import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 import organizacao.finance.Guaxicash.service.BankService;
 
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
+@Validated
 @RestController
-@RequestMapping(value = "bank")
+@RequestMapping("/bank")
 public class BankResource {
 
     @Autowired
     private BankService bankService;
-    @Autowired
-    private BankRepository bankRepository;
-
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<Bank> createBank(@RequestBody Bank bank) {
-        bank = bankService.insert(bank);
-        return ResponseEntity.ok(bank);
+    public ResponseEntity<HttpResponseDTO> createBank(@RequestBody Bank bank) {
+        Bank created = bankService.insert(bank);
+        URI location = URI.create("/bank/" + created.getUuid());
+        return ResponseEntity.created(location)
+                .body(new HttpResponseDTO("Banco criado com sucesso."));
     }
 
-    @PutMapping({"/{id}"})
+    @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<Bank> updateBank(@PathVariable UUID id, @RequestBody Bank bank){
-        Bank updated = bankService.update(id, bank);
-        return ResponseEntity.ok(updated);
+    public ResponseEntity<HttpResponseDTO> updateBank(@PathVariable UUID id, @RequestBody Bank bank) {
+        bankService.update(id, bank);
+        return ResponseEntity.ok(new HttpResponseDTO("Banco atualizado com sucesso."));
     }
 
     @GetMapping
     public ResponseEntity<List<Bank>> findAll() {
-        List<Bank> list = bankService.findAll();
-        return ResponseEntity.ok().body(list);
+        return ResponseEntity.ok(bankService.findAll());
     }
 
-    @DeleteMapping(value = "/{id}")
-    public ResponseEntity delete(@PathVariable UUID id){
+    @GetMapping("/{id}")
+    public ResponseEntity<Bank> findById(@PathVariable UUID id) {
+        return ResponseEntity.ok(bankService.findById(id));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public ResponseEntity<HttpResponseDTO> delete(@PathVariable UUID id) {
         bankService.delete(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(new HttpResponseDTO("Banco removido com sucesso."));
     }
-
 }

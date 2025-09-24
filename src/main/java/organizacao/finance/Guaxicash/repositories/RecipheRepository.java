@@ -18,6 +18,4 @@ public interface RecipheRepository extends JpaRepository<Reciphe, UUID> {
     List<Reciphe> findByAccounts_User_UuidAndDateRegistrationBetween(
             UUID userId, LocalDate start, LocalDate end, Sort sort);
 
-    List<Reciphe> findByAccounts_User_UuidAndDatePayBetween(
-            UUID userId, LocalDate start, LocalDate end, Sort sort);
 }

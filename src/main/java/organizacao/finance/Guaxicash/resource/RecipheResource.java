@@ -7,73 +7,76 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import organizacao.finance.Guaxicash.entities.Transactions;
+import organizacao.finance.Guaxicash.entities.Reciphe;
 import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
-import organizacao.finance.Guaxicash.service.TransactionsService;
+import organizacao.finance.Guaxicash.service.RecipheService;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Validated
 @RestController
-@RequestMapping("/transactions")
-public class TransactionsResource {
-
+@RequestMapping("/reciphe")
+public class RecipheResource {
     @Autowired
-    private TransactionsService service;
-
+    private RecipheService recipheService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<Transactions>> findAll() {
-        return ResponseEntity.ok(service.findAll());
+    public ResponseEntity<List<Reciphe>> findAll() {
+        return ResponseEntity.ok(recipheService.findAll());
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Transactions> findById(
+    public ResponseEntity<Reciphe> findById(
             @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
-        return ResponseEntity.ok(service.findById(UUID.fromString(id)));
+        return ResponseEntity.ok(recipheService.findById(UUID.fromString(id)));
     }
 
     @GetMapping("/search")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<Transactions>> searchByDate(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    public ResponseEntity<List<Reciphe>> search(
+            @RequestParam(required = false) String field, // "registration" ou "pay"
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fromDateTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime toDateTime
     ) {
-        return ResponseEntity.ok(service.searchByRegistrationDate(from, to));
+        return ResponseEntity.ok(
+                recipheService.search(field, fromDate, toDate, fromDateTime, toDateTime)
+        );
     }
-
 
     @PostMapping("/create")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<HttpResponseDTO> insert(@RequestBody Transactions body) {
-        Transactions saved = service.insert(body);
+    public ResponseEntity<HttpResponseDTO> insert(@RequestBody Reciphe body) {
+        Reciphe saved = recipheService.insert(body);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(saved.getUuid())
                 .toUri();
         return ResponseEntity.created(location)
-                .body(new HttpResponseDTO("Transação criada com sucesso."));
+                .body(new HttpResponseDTO("Receita criada com sucesso."));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<HttpResponseDTO> update(
             @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id,
-            @RequestBody Transactions body) {
-        service.update(UUID.fromString(id), body);
-        return ResponseEntity.ok(new HttpResponseDTO("Transação atualizada com sucesso."));
+            @RequestBody Reciphe body) {
+        recipheService.update(UUID.fromString(id), body);
+        return ResponseEntity.ok(new HttpResponseDTO("Receita atualizada com sucesso."));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<HttpResponseDTO> delete(
             @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
-        service.delete(UUID.fromString(id));
-        return ResponseEntity.ok(new HttpResponseDTO("Transação removida com sucesso."));
+        recipheService.delete(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Receita removida com sucesso."));
     }
 }

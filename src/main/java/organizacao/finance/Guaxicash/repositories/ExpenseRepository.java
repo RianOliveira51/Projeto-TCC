@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import organizacao.finance.Guaxicash.entities.Expenses;
 import organizacao.finance.Guaxicash.entities.User;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -17,7 +18,7 @@ public interface ExpenseRepository extends JpaRepository<Expenses, UUID> {
 
     Optional<Expenses> findByUuidAndAccounts_User_Uuid(UUID id, UUID userId);
 
-    List<Expenses> findByAccounts_User_UuidAndPayDateBetween(
-            UUID userId, java.time.LocalDate start, java.time.LocalDate end, org.springframework.data.domain.Sort sort
+    List<Expenses> findByAccounts_User_UuidAndDateRegistrationBetween(
+            UUID userId, LocalDate from, LocalDate to, Sort sort
     );
 }

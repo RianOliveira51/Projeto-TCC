@@ -45,7 +45,7 @@ public class RecipheService {
         return r;
     }
 
-    public List<organizacao.finance.Guaxicash.entities.Reciphe> search(
+    public List<Reciphe> search(
             String field,
             LocalDate fromDate,
             LocalDate toDate,
@@ -54,7 +54,6 @@ public class RecipheService {
     ) {
         User me = securityService.obterUserLogin();
 
-        // Prioriza os pares DateTime, senão usa Date
         LocalDate start = (fromDateTime != null) ? fromDateTime.toLocalDate() : fromDate;
         LocalDate end   = (toDateTime != null)   ? toDateTime.toLocalDate()   : toDate;
 
@@ -67,15 +66,13 @@ public class RecipheService {
             throw new IllegalArgumentException("Parâmetro 'to' não pode ser anterior a 'from'.");
         }
 
-        boolean byRegistration = (field == null) || field.equalsIgnoreCase("registration");
-        Sort sort = byRegistration ? Sort.by("dateRegistration").ascending()
-                : Sort.by("datePay").ascending();
+        Sort sort = Sort.by("dateRegistration").ascending();
 
-        return byRegistration
-                ? recipheRepository.findByAccounts_User_UuidAndDateRegistrationBetween(me.getUuid(), start, end, sort)
-                : recipheRepository.findByAccounts_User_UuidAndDatePayBetween(me.getUuid(), start, end, sort);
+        return recipheRepository.findByAccounts_User_UuidAndDateRegistrationBetween(
+                me.getUuid(), start, end, sort
+        );
     }
-    // cadastra e já soma no balance da conta
+    
     @Transactional
     public Reciphe insert(Reciphe reciphe) {
         if (reciphe.getValue() == null || reciphe.getValue() <= 0f) {
@@ -123,7 +120,7 @@ public class RecipheService {
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
 
         Accounts oldAcc = persisted.getAccounts();
-        BigDecimal oldVal = bd(persisted.getValue()); // Float -> BigDecimal
+        BigDecimal oldVal = bd(persisted.getValue());
 
         // Troca de conta (se veio no payload)
         if (payload.getAccounts() != null && payload.getAccounts().getUuid() != null) {
@@ -135,7 +132,6 @@ public class RecipheService {
             persisted.setAccounts(newAcc);
         }
 
-        // Troca de categoria (opcional)
         if (payload.getCategory() != null && payload.getCategory().getUuid() != null) {
             Category cat = categoryRepository.findById(payload.getCategory().getUuid())
                     .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCategory().getUuid()));
@@ -145,7 +141,6 @@ public class RecipheService {
         // Atualiza campos simples (parcial)
         if (payload.getDescription() != null)        persisted.setDescription(payload.getDescription());
         if (payload.getDateRegistration() != null)   persisted.setDateRegistration(payload.getDateRegistration());
-        if (payload.getDatePay() != null)            persisted.setDatePay(payload.getDatePay());
         if (payload.getValue() != null)              persisted.setValue(payload.getValue());
 
         // valida novo valor (> 0)
@@ -171,7 +166,6 @@ public class RecipheService {
         return recipheRepository.save(persisted);
     }
 
-    // ===== DELETE =====
     @Transactional
     public void delete(UUID id) {
         User me = securityService.obterUserLogin();

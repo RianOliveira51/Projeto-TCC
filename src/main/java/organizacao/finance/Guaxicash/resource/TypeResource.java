@@ -3,49 +3,58 @@ package organizacao.finance.Guaxicash.resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import organizacao.finance.Guaxicash.entities.Bank;
 import organizacao.finance.Guaxicash.entities.Type;
-import organizacao.finance.Guaxicash.repositories.TypeRepository;
+import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 import organizacao.finance.Guaxicash.service.TypeService;
 
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
+@Validated
 @RestController
-@RequestMapping(value = "/type")
+@RequestMapping("/type")
 public class TypeResource {
 
     @Autowired
     private TypeService typeService;
-    @Autowired
-    private TypeRepository typeRepository;
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<Type> createType(@RequestBody Type type) {
-        type = typeService.insert(type);
-        return ResponseEntity.ok(type);
+    public ResponseEntity<HttpResponseDTO> createType(@RequestBody Type type) {
+        Type created = typeService.insert(type);
+        URI location = URI.create("/type/" + created.getUuid());
+        return ResponseEntity.created(location)
+                .body(new HttpResponseDTO("Tipo criado com sucesso."));
     }
 
     @GetMapping
     public ResponseEntity<List<Type>> findAll() {
-        List<Type> list = typeService.findAll();
-        return ResponseEntity.ok().body(list);
+        return ResponseEntity.ok(typeService.findAll());
     }
 
-    @PutMapping({"/{id}"})
+    @GetMapping("/{id}")
+    public ResponseEntity<Type> findById(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
+        return ResponseEntity.ok(typeService.findById(UUID.fromString(id)));
+    }
+
+    @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<Type> updateBank(@PathVariable UUID id, @RequestBody Type type){
-        Type updated = typeService.update(id, type);
-        return ResponseEntity.ok(updated);
+    public ResponseEntity<HttpResponseDTO> updateType(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id,
+            @RequestBody Type type){
+        typeService.update(UUID.fromString(id), type);
+        return ResponseEntity.ok(new HttpResponseDTO("Tipo atualizado com sucesso."));
     }
 
-    @DeleteMapping(value = "/{id}")
+    @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity delete(@PathVariable UUID id){
-        typeService.delete(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<HttpResponseDTO> delete(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id){
+        typeService.delete(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Tipo removido com sucesso."));
     }
-
 }

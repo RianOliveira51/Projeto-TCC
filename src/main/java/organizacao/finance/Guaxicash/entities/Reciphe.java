@@ -16,7 +16,6 @@ public class Reciphe {
     private Float value;
     private String description;
     private LocalDate dateRegistration;
-    private LocalDate datePay;
     @ManyToOne
     @JoinColumn(name = "id_category")
     private Category category;
@@ -28,12 +27,11 @@ public class Reciphe {
 
     }
 
-    public Reciphe(UUID uuid, Float value, String description,LocalDate dateRegistration,LocalDate datePay,  Category category, Accounts accounts) {
+    public Reciphe(UUID uuid, Float value, String description,LocalDate dateRegistration, Category category, Accounts accounts) {
         this.uuid = uuid;
         this.value = value;
         this.description = description;
         this.dateRegistration = dateRegistration;
-        this.datePay = datePay;
         this.category = category;
         this.accounts = accounts;
     }
@@ -68,14 +66,6 @@ public class Reciphe {
 
     public void setDateRegistration(LocalDate dateRegistration) {
         this.dateRegistration = dateRegistration;
-    }
-
-    public LocalDate getDatePay() {
-        return datePay;
-    }
-
-    public void setDatePay(LocalDate datePay) {
-        this.datePay = datePay;
     }
 
     public Category getCategory() {
