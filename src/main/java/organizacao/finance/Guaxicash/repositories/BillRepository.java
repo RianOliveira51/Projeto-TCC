@@ -5,6 +5,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import organizacao.finance.Guaxicash.entities.Bill;
 import organizacao.finance.Guaxicash.entities.CreditCard;
 import organizacao.finance.Guaxicash.entities.Enums.BillPay;
@@ -36,4 +39,27 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
     Optional<Bill> findFirstByCreditCardAndCloseDateBetween(
             CreditCard creditCard, LocalDate startInclusive, LocalDate endInclusive
     );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+   update Bill b
+      set b.status = :closeStatus
+    where b.closeDate <= :today
+      and b.status in (:eligible)
+""")
+    int markBillsClosed(@Param("today") LocalDate today,
+                        @Param("closeStatus") BillPay closeStatus,
+                        @Param("eligible") java.util.List<BillPay> eligible);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+   update Bill b
+      set b.status = :openStatus
+    where b.openDate <= :today
+      and b.closeDate >= :today
+      and b.status = :futureStatus
+""")
+    int markBillsOpenForToday(@Param("today") java.time.LocalDate today,
+                              @Param("openStatus") organizacao.finance.Guaxicash.entities.Enums.BillPay openStatus,
+                              @Param("futureStatus") organizacao.finance.Guaxicash.entities.Enums.BillPay futureStatus);
 }

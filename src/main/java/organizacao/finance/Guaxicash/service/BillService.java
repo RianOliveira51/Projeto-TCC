@@ -137,7 +137,6 @@ public class BillService {
         billRepository.saveAll(bills);
     }
 
-
     @Transactional
     public Bill registerPayment(UUID billId, Double amount) {
         if (amount == null) throw new IllegalArgumentException("Informe o valor do pagamento.");

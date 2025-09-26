@@ -5,7 +5,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -26,62 +25,67 @@ import java.util.Arrays;
 @EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true)
 public class SecurityConfig {
 
+    // Se puder, renomeie a classe para SecurityFilter (PascalCase) e o bean para "securityFilter"
     @Autowired
-    securityFilter securityFilter;
+    private SecurityFilter securityFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        //toda requisação deve ser authenticada
         http
-                //não subir para produção
-                .cors(Customizer.withDefaults())
-                .csrf(csrf->csrf.disable())
-                //formulario de login para testar google
-                //.formLogin(Customizer.withDefaults())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize
-                        //Bank
-                        .requestMatchers(HttpMethod.POST, "/bank/create").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/flags/create").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/users").permitAll()
+                .cors(c -> {}) // usa o bean corsConfigurationSource()
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // Rotas públicas
                         .requestMatchers(HttpMethod.POST, "/users/login", "/users/register").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/users/register/admin").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        //Qualquer outra requisição, tem que estar autenticado.
-                        .anyRequest().authenticated())
-                //.oauth2Login(Customizer.withDefaults())
+                        // Demais rotas tem que estar autenticado.
+                        .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((req, res, e) -> {
+                            if (res.isCommitted()) return;
+                            res.setStatus(401);
+                            res.setContentType("application/json;charset=UTF-8");
+                            res.setHeader("WWW-Authenticate", "Bearer");
+                            res.getWriter().write("{\"message\":\"Não autenticado\"}");
+                        })
+                        .accessDeniedHandler((req, res, e) -> {
+                            if (res.isCommitted()) return;
+                            res.setStatus(403);
+                            res.setContentType("application/json;charset=UTF-8");
+                            res.getWriter().write("{\"message\":\"Acesso negado\"}");
+                        })
+                )
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)  throws Exception{
-        return authenticationConfiguration.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
+        return cfg.getAuthenticationManager();
     }
 
-    //Para o spring ejetar corretamenta.
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // criptografando as senhas para salvar no banco
         return new BCryptPasswordEncoder();
     }
 
-@Bean
-public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration config = new CorsConfiguration();
-    config.setAllowedOrigins(Arrays.asList(
-            "http://localhost:4200",
-            //apenas para testar via radmin
-            "http://26.219.188.95:4200",
-            "http://26.3.243.8:4200"
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(Arrays.asList(
+                "http://localhost:4200",
+                "http://26.219.188.95:4200",
+                "http://26.3.243.8:4200"
+        ));
+        config.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","OPTIONS"));
+        config.setAllowedHeaders(Arrays.asList("Authorization","Content-Type","Accept","Origin"));
+        config.setAllowCredentials(true);
 
-    ));
-    config.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","OPTIONS"));
-    config.setAllowedHeaders(Arrays.asList("Authorization","Content-Type","Accept","Origin"));
-    config.setAllowCredentials(true);
-
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", config);
-    return source;
-}
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 }
