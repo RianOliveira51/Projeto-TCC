@@ -1,6 +1,7 @@
 package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 
 import java.util.UUID;
 
@@ -13,15 +14,17 @@ public class Category {
     private UUID uuid;
     private String description;
     private boolean earn;
+    private Active active = Active.ACTIVE;
 
     public Category() {
 
     }
 
-    public Category(UUID uuid, String description, boolean earn) {
+    public Category(UUID uuid, String description, boolean earn, Active active) {
         this.uuid = uuid;
         this.description = description;
         this.earn = earn;
+        this.active = active;
     }
 
     public UUID getUuid() {
@@ -46,5 +49,17 @@ public class Category {
 
     public void setEarn(boolean earn) {
         this.earn = earn;
+    }
+
+    public Active isActive() {
+        return active;
+    }
+
+    public Active getActive() {
+        return active;
+    }
+
+    public void setActive(Active active) {
+        this.active = active;
     }
 }

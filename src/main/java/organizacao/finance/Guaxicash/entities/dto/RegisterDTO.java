@@ -1,6 +1,7 @@
 package organizacao.finance.Guaxicash.entities.dto;
 
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 
-public record RegisterDTO(String name, String email, String phone, String password, UserRole role ){
+public record RegisterDTO(String name, String email, String phone, String password, UserRole role, Active active) {
 }

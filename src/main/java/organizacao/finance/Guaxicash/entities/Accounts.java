@@ -1,6 +1,8 @@
 package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
+import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 
 import java.util.UUID;
 
@@ -12,7 +14,7 @@ public class Accounts {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID uuid;
     private String name;
-    private Float balance;
+    private Double balance;
 
     @ManyToOne
     @JoinColumn(name = "bank_id")
@@ -24,18 +26,19 @@ public class Accounts {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
-
+    private Active active = Active.ACTIVE;
     public Accounts(){
 
     }
 
-    public Accounts(UUID uuid, String name, Float balance, Bank bank, Type type, User user) {
+    public Accounts(UUID uuid, String name, Double balance, Bank bank, Type type, User user, Active active) {
         this.uuid = uuid;
         this.name = name;
         this.balance = balance;
         this.bank = bank;
         this.type = type;
         this.user = user;
+        this.active = active;
     }
 
     public User getUser() {
@@ -62,11 +65,11 @@ public class Accounts {
         this.name = name;
     }
 
-    public Float getBalance() {
+    public Double getBalance() {
         return balance;
     }
 
-    public void setBalance(Float balance) {
+    public void setBalance(Double balance) {
         this.balance = balance;
     }
 
@@ -84,5 +87,13 @@ public class Accounts {
 
     public void setType(Type type) {
         this.type = type;
+    }
+
+    public Active getActive() {
+        return active;
+    }
+
+    public void setActive(Active active) {
+        this.active = active;
     }
 }

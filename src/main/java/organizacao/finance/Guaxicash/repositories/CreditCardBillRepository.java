@@ -2,8 +2,8 @@ package organizacao.finance.Guaxicash.repositories;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
-import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.CreditCardBill;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.User;
 
 import java.time.LocalDate;
@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CreditCardBillRepository extends JpaRepository<CreditCardBill, UUID> {
+
     List<CreditCardBill> findByCreditCard_Accounts_User(User user);
     Optional<CreditCardBill> findByUuidAndCreditCard_Accounts_User_Uuid(UUID id, UUID userId);
 
@@ -26,4 +27,8 @@ public interface CreditCardBillRepository extends JpaRepository<CreditCardBill, 
 
     List<CreditCardBill> findByCreditCard_UuidAndCreditCard_Accounts_User_UuidAndBill_PayDateBetween(
             UUID creditCardId, UUID userId, LocalDate start, LocalDate end, Sort sort);
+
+    // ==== novos filtros por Active ====
+    List<CreditCardBill> findByCreditCard_Accounts_UserAndActive(User user, Active active);
+    Optional<CreditCardBill> findByUuidAndActive(UUID id, Active active);
 }

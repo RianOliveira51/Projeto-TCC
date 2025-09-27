@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.entities.Bill;
 import organizacao.finance.Guaxicash.entities.CreditCard;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.BillPay;
 import organizacao.finance.Guaxicash.repositories.BillRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
@@ -21,49 +22,51 @@ import java.util.UUID;
 @Service
 public class BillService {
 
-    @Autowired
-    private BillRepository billRepository;
+    @Autowired private BillRepository billRepository;
 
     private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
 
+    // ===== Listagens com filtro opcional
     public List<Bill> findByUserId(UUID userId) {
         return billRepository.findByCreditCardAccountsUserUuid(userId);
+    }
+    public List<Bill> findByUserId(UUID userId, Active active) {
+        return billRepository.findByCreditCardAccountsUserUuidAndActive(userId, active);
     }
     public List<Bill> findByCreditCard(UUID cardId) {
         return billRepository.findByCreditCardUuid(cardId);
     }
+    public List<Bill> findByCreditCard(UUID cardId, Active active) {
+        return billRepository.findByCreditCardUuidAndActive(cardId, active);
+    }
 
     public Bill insert(Bill bill) {
+        if (bill.getActive() == null) bill.setActive(Active.ACTIVE);
+        if (bill.getActive() != Active.ACTIVE) {
+            throw new IllegalArgumentException("Não é possível criar fatura desativada.");
+        }
         return billRepository.save(bill);
     }
 
     @Transactional
     public void generateBillsUntilDec2025(CreditCard card) {
-
         LocalDate today = LocalDate.now();
         YearMonth startYm = YearMonth.from(today);
         YearMonth endYm   = YearMonth.of(2025, 12);
 
-        // Dias relevantes (apenas o dia do mês interessa)
-        int closeDay = card.getCloseDate().getDayOfMonth();   // dia de fechamento
-        int dueDay   = card.getExpiryDate().getDayOfMonth();  // dia de vencimento
+        int closeDay = card.getCloseDate().getDayOfMonth();
+        int dueDay   = card.getExpiryDate().getDayOfMonth();
 
         List<Bill> toSave = new ArrayList<>();
 
         for (YearMonth ym = startYm; !ym.isAfter(endYm); ym = ym.plusMonths(1)) {
-            // Data de FECHAMENTO desta fatura
             LocalDate closing = atSafeDay(ym, closeDay);
-
-            // Pula faturas cujo fechamento já passou
             if (closing.isBefore(today)) continue;
 
-            // Data de ABERTURA: (fechamento do mês anterior) + 1 dia
             LocalDate prevClosing = atSafeDay(ym.minusMonths(1), closeDay);
             LocalDate opening = prevClosing.plusDays(1);
 
-            // Data de VENCIMENTO: se dueDay > closeDay, vence no mesmo mês; senão, no próximo
-            LocalDate due = (dueDay > closeDay)
-                    ? atSafeDay(ym, dueDay)
+            LocalDate due = (dueDay > closeDay) ? atSafeDay(ym, dueDay)
                     : atSafeDay(ym.plusMonths(1), dueDay);
 
             if (!billRepository.existsByCreditCardAndCloseDate(card, closing)) {
@@ -78,21 +81,18 @@ public class BillService {
                 bill.setStatus(status);
                 bill.setValue(0.0);
                 bill.setValuepay(0.0);
+                bill.setActive(Active.ACTIVE);
                 toSave.add(bill);
             }
         }
-        if (!toSave.isEmpty()) {
-            billRepository.saveAll(toSave);
-        }
+        if (!toSave.isEmpty()) billRepository.saveAll(toSave);
     }
 
     private static LocalDate atSafeDay(YearMonth ym, int day) {
         int safe = Math.min(day, ym.lengthOfMonth());
         return ym.atDay(safe);
-
     }
 
-    //Atualizar
     public void rescheduleFutureBills(CreditCard card) {
         LocalDate today = LocalDate.now(ZONE);
 
@@ -104,36 +104,19 @@ public class BillService {
         int newDueDay    = card.getExpiryDate().getDayOfMonth();
 
         for (Bill b : bills) {
-            // O "mês da fatura" continua sendo o mesmo do fechamento atual
             YearMonth ym = YearMonth.from(b.getCloseDate());
-
-            // Novo fechamento no mesmo mês da fatura, ajustando ao tamanho do mês
             LocalDate newCloseDate = atSafeDay(ym, newCloseDay);
-
-            // Novo vencimento no mês seguinte
             YearMonth dueYm = ym.plusMonths(1);
             LocalDate newPayDate = atSafeDay(dueYm, newDueDay);
-
-            // Novo "fechamento" do mês anterior para calcular a abertura
             YearMonth prevYm = ym.minusMonths(1);
             LocalDate prevClose = atSafeDay(prevYm, newCloseDay);
             LocalDate newOpenDate = prevClose.plusDays(1);
-
-            // Por segurança: open <= close e pay >= close
-            if (newOpenDate.isAfter(newCloseDate)) {
-                // fallback: início do próprio mês (raro, se fechamento for dia 1)
-                newOpenDate = ym.atDay(1);
-            }
-            if (newPayDate.isBefore(newCloseDate)) {
-                // fallback: empurra o vencimento para o mesmo mês do fechamento (caso extremo)
-                newPayDate = newCloseDate;
-            }
-
+            if (newOpenDate.isAfter(newCloseDate)) newOpenDate = ym.atDay(1);
+            if (newPayDate.isBefore(newCloseDate)) newPayDate = newCloseDate;
             b.setOpenDate(newOpenDate);
             b.setCloseDate(newCloseDate);
             b.setPayDate(newPayDate);
         }
-
         billRepository.saveAll(bills);
     }
 
@@ -141,33 +124,68 @@ public class BillService {
     public Bill registerPayment(UUID billId, Double amount) {
         if (amount == null) throw new IllegalArgumentException("Informe o valor do pagamento.");
         BigDecimal inc = BigDecimal.valueOf(amount).setScale(2, RoundingMode.HALF_UP);
-        if (inc.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("O pagamento deve ser maior que zero.");
-        }
+        if (inc.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("O pagamento deve ser maior que zero.");
 
         Bill bill = billRepository.findById(billId)
                 .orElseThrow(() -> new ResourceNotFoundExeption(billId));
 
-        BigDecimal total   = BigDecimal.valueOf(bill.getValue()    == null ? 0.0 : bill.getValue()).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total   = BigDecimal.valueOf(bill.getValue() == null ? 0.0 : bill.getValue()).setScale(2, RoundingMode.HALF_UP);
         BigDecimal current = BigDecimal.valueOf(bill.getValuepay() == null ? 0.0 : bill.getValuepay()).setScale(2, RoundingMode.HALF_UP);
 
-        if (total.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalStateException("Fatura sem valor total definido.");
-        }
+        if (total.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalStateException("Fatura sem valor total definido.");
 
-        BigDecimal remaining = total.subtract(current); // quanto falta pagar
-        if (inc.compareTo(remaining) > 0) {
-            throw new IllegalArgumentException("Pagamento excede o valor restante da fatura. Falta pagar: " + remaining);
-        }
+        BigDecimal remaining = total.subtract(current);
+        if (inc.compareTo(remaining) > 0) throw new IllegalArgumentException("Pagamento excede o restante. Falta pagar: " + remaining);
 
         BigDecimal newPaid = current.add(inc).setScale(2, RoundingMode.HALF_UP);
         bill.setValuepay(newPaid.doubleValue());
+        if (newPaid.compareTo(total) == 0) bill.setStatus(BillPay.PAID);
 
-        // Se quitou, marca como paga
-        if (newPaid.compareTo(total) == 0) {
-            bill.setStatus(BillPay.PAID);
-        }
         return billRepository.save(bill);
     }
 
+    // ===== Trava de alteração quando fechado
+    private void assertNotClosed(Bill bill) {
+        if (bill.getStatus() == BillPay.CLOSE_PENDING) {
+            throw new IllegalStateException("Fatura fechada (CLOSE) não pode alterar o valor.");
+        }
+    }
+
+    @Transactional
+    public Bill setValue(UUID billId, Double newValue) {
+        if (newValue == null) throw new IllegalArgumentException("Valor não pode ser nulo.");
+        Bill bill = billRepository.findById(billId)
+                .orElseThrow(() -> new ResourceNotFoundExeption(billId));
+        assertNotClosed(bill);
+        bill.setValue(newValue);
+        return billRepository.save(bill);
+    }
+
+    @Transactional
+    public Bill addToValue(UUID billId, Double delta) {
+        if (delta == null) throw new IllegalArgumentException("Delta não pode ser nulo.");
+        Bill bill = billRepository.findById(billId)
+                .orElseThrow(() -> new ResourceNotFoundExeption(billId));
+        assertNotClosed(bill);
+        double atual = bill.getValue() == null ? 0.0 : bill.getValue();
+        bill.setValue(atual + delta);
+        return billRepository.save(bill);
+    }
+
+    // ===== Soft delete local (sem cascata extra aqui)
+    @Transactional
+    public void deactivate(UUID id) {
+        Bill b = billRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundExeption(id));
+        b.setActive(Active.DISABLE);
+        billRepository.save(b);
+    }
+
+    @Transactional
+    public void activate(UUID id) {
+        Bill b = billRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundExeption(id));
+        b.setActive(Active.ACTIVE);
+        billRepository.save(b);
+    }
 }

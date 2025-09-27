@@ -7,6 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Reciphe;
 import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 import organizacao.finance.Guaxicash.service.RecipheService;
@@ -26,8 +27,9 @@ public class RecipheResource {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<Reciphe>> findAll() {
-        return ResponseEntity.ok(recipheService.findAll());
+    public ResponseEntity<List<Reciphe>> findAll(@RequestParam(required = false) Active active) {
+        var out = (active == null) ? recipheService.findAll() : recipheService.findAll(active);
+        return ResponseEntity.ok(out);
     }
 
     @GetMapping("/{id}")
@@ -40,7 +42,7 @@ public class RecipheResource {
     @GetMapping("/search")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Reciphe>> search(
-            @RequestParam(required = false) String field, // "registration" ou "pay"
+            @RequestParam(required = false) String field,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fromDateTime,
@@ -78,5 +80,21 @@ public class RecipheResource {
             @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
         recipheService.delete(UUID.fromString(id));
         return ResponseEntity.ok(new HttpResponseDTO("Receita removida com sucesso."));
+    }
+
+    @DeleteMapping("/deactivate/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<HttpResponseDTO> deactivate(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
+        recipheService.deactivate(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Receita desativada."));
+    }
+
+    @PutMapping("/activate/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<HttpResponseDTO> activate(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
+        recipheService.activate(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Receita ativada."));
     }
 }

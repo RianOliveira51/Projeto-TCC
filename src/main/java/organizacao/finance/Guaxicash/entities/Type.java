@@ -1,6 +1,7 @@
 package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 
 import java.util.UUID;
 
@@ -11,14 +12,16 @@ public class Type {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID uuid;
     private String Description;
+    private Active active = Active.ACTIVE;
 
     public Type(){
 
     }
 
-    public Type(UUID uuid, String Description){
+    public Type(UUID uuid, String Description, Active active) {
         this.uuid = uuid;
         this.Description = Description;
+        this.active = active;
     }
 
     public UUID getUuid() {
@@ -37,4 +40,11 @@ public class Type {
         this.Description = Description;
     }
 
+    public Active getActive() {
+        return active;
+    }
+
+    public void setActive(Active active) {
+        this.active = active;
+    }
 }

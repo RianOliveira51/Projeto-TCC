@@ -1,6 +1,7 @@
 package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.BillPay;
 
 import java.time.LocalDate;
@@ -23,8 +24,9 @@ public class Bill {
     @ManyToOne
     @JoinColumn(name = "creditCard_id")
     private CreditCard creditCard;
+    private Active active = Active.ACTIVE;
 
-    public Bill(UUID uuid, Double value,Double valuepay, BillPay billPay, LocalDate closeDate, LocalDate  openDate, LocalDate  PayDate, CreditCard creditCard) {
+    public Bill(UUID uuid, Double value,Double valuepay, BillPay billPay, LocalDate closeDate, LocalDate  openDate, LocalDate  PayDate, CreditCard creditCard, Active active) {
         this.uuid = uuid;
         this.value = value;
         this.valuepay = valuepay;
@@ -33,6 +35,7 @@ public class Bill {
         this.openDate = openDate;
         this.payDate = PayDate;
         this.creditCard = creditCard;
+        this.active = active;
     }
 
     public Bill() {
@@ -103,5 +106,13 @@ public class Bill {
 
     public void setPayDate(LocalDate  payDate) {
         this.payDate = payDate;
+    }
+
+    public Active getActive() {
+        return active;
+    }
+
+    public void setActive(Active active) {
+        this.active = active;
     }
 }

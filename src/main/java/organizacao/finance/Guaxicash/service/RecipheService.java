@@ -7,6 +7,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import organizacao.finance.Guaxicash.Config.SecurityService;
 import organizacao.finance.Guaxicash.entities.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.repositories.*;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
@@ -29,10 +30,25 @@ public class RecipheService {
 
     private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
 
+    private void assertActive(Reciphe r) {
+        if (r.getActive() != Active.ACTIVE) throw new IllegalStateException("Receita desativada. Operação não permitida.");
+    }
+    private void assertAccountActive(Accounts acc) {
+        if (acc.getActive() != Active.ACTIVE) throw new IllegalStateException("Conta desativada. Operação não permitida.");
+    }
+    private void assertCategoryActive(Category c) {
+        if (c.isActive() != Active.ACTIVE) throw new IllegalStateException("Categoria desativada. Operação não permitida.");
+    }
+
     public List<Reciphe> findAll() {
         User me = securityService.obterUserLogin();
-        if (isAdmin(me)) return recipheRepository.findAll();
-        return recipheRepository.findByAccounts_User(me); // ✅ caminho correto
+        return isAdmin(me) ? recipheRepository.findAll() : recipheRepository.findByAccounts_User(me);
+    }
+
+    public List<Reciphe> findAll(Active active) {
+        User me = securityService.obterUserLogin();
+        return isAdmin(me) ? recipheRepository.findAllByActive(active)
+                : recipheRepository.findByAccounts_UserAndActive(me, active);
     }
 
     public Reciphe findById(UUID id) {
@@ -57,14 +73,10 @@ public class RecipheService {
         LocalDate start = (fromDateTime != null) ? fromDateTime.toLocalDate() : fromDate;
         LocalDate end   = (toDateTime != null)   ? toDateTime.toLocalDate()   : toDate;
 
-        if (start == null && end == null) {
-            throw new IllegalArgumentException("Informe ao menos uma data (from/to).");
-        }
+        if (start == null && end == null) throw new IllegalArgumentException("Informe ao menos uma data (from/to).");
         if (start == null) start = end;
         if (end == null)   end   = start;
-        if (end.isBefore(start)) {
-            throw new IllegalArgumentException("Parâmetro 'to' não pode ser anterior a 'from'.");
-        }
+        if (end.isBefore(start)) throw new IllegalArgumentException("Parâmetro 'to' não pode ser anterior a 'from'.");
 
         Sort sort = Sort.by("dateRegistration").ascending();
 
@@ -72,11 +84,14 @@ public class RecipheService {
                 me.getUuid(), start, end, sort
         );
     }
-    
+
     @Transactional
     public Reciphe insert(Reciphe reciphe) {
         if (reciphe.getValue() == null || reciphe.getValue() <= 0f) {
             throw new IllegalArgumentException("O valor do recebimento deve ser maior que zero.");
+        }
+        if (reciphe.getActive() != null && reciphe.getActive() == Active.DISABLE) {
+            throw new IllegalArgumentException("Não é possível criar receita já desativada.");
         }
 
         UUID categoryId = reciphe.getCategory().getUuid();
@@ -87,63 +102,61 @@ public class RecipheService {
         Accounts accounts = accountsRepository.findById(accountId)
                 .orElseThrow(() -> new ResourceNotFoundExeption(accountId));
 
-        // segurança: dono da conta ou ADMIN
+        // dono da conta ou ADMIN
         User me = securityService.obterUserLogin();
         if (!isAdmin(me) && !accounts.getUser().getUuid().equals(me.getUuid())) {
             throw new AccessDeniedException("Conta não pertence ao usuário autenticado.");
         }
 
+        assertAccountActive(accounts);
+        assertCategoryActive(category);
+
         reciphe.setCategory(category);
         reciphe.setAccounts(accounts);
+        reciphe.setActive(Active.ACTIVE);
 
-        // soma no saldo com BigDecimal (2 casas)
-        BigDecimal inc = BigDecimal.valueOf(reciphe.getValue()).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal cur = BigDecimal.valueOf(accounts.getBalance() == null ? 0.0 : accounts.getBalance())
-                .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal novo = cur.add(inc).setScale(2, RoundingMode.HALF_UP);
-        accounts.setBalance(novo.floatValue());
-
-        // salva tudo na mesma transação
+        // soma no saldo
+        addToBalance(accounts, bd(reciphe.getValue()));
         accountsRepository.save(accounts);
+
         return recipheRepository.save(reciphe);
     }
 
-    // ===== UPDATE =====
     @Transactional
     public Reciphe update(UUID id, Reciphe payload) {
         User me = securityService.obterUserLogin();
 
-        // carrega com escopo de dono
         Reciphe persisted = isAdmin(me)
                 ? recipheRepository.findById(id).orElseThrow(() -> new ResourceNotFoundExeption(id))
                 : recipheRepository.findByUuidAndAccounts_User_Uuid(id, me.getUuid())
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
 
+        assertActive(persisted);
+
         Accounts oldAcc = persisted.getAccounts();
         BigDecimal oldVal = bd(persisted.getValue());
 
-        // Troca de conta (se veio no payload)
         if (payload.getAccounts() != null && payload.getAccounts().getUuid() != null) {
             Accounts newAcc = accountsRepository.findById(payload.getAccounts().getUuid())
                     .orElseThrow(() -> new ResourceNotFoundExeption(payload.getAccounts().getUuid()));
             if (!isAdmin(me) && !newAcc.getUser().getUuid().equals(me.getUuid())) {
                 throw new AccessDeniedException("Conta não pertence ao usuário autenticado.");
             }
+            assertAccountActive(newAcc);
             persisted.setAccounts(newAcc);
         }
 
         if (payload.getCategory() != null && payload.getCategory().getUuid() != null) {
             Category cat = categoryRepository.findById(payload.getCategory().getUuid())
                     .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCategory().getUuid()));
+            assertCategoryActive(cat);
             persisted.setCategory(cat);
         }
 
-        // Atualiza campos simples (parcial)
-        if (payload.getDescription() != null)        persisted.setDescription(payload.getDescription());
-        if (payload.getDateRegistration() != null)   persisted.setDateRegistration(payload.getDateRegistration());
-        if (payload.getValue() != null)              persisted.setValue(payload.getValue());
+        if (payload.getDescription() != null)      persisted.setDescription(payload.getDescription());
+        if (payload.getDateRegistration() != null) persisted.setDateRegistration(payload.getDateRegistration());
+        if (payload.getValue() != null)            persisted.setValue(payload.getValue());
 
-        // valida novo valor (> 0)
         BigDecimal newVal = bd(persisted.getValue());
         if (newVal.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("O valor do recebimento deve ser maior que zero.");
@@ -152,14 +165,12 @@ public class RecipheService {
         Accounts newAcc = persisted.getAccounts();
 
         if (!oldAcc.getUuid().equals(newAcc.getUuid())) {
-            // mudou de conta: estorna na antiga e soma na nova
-            addToBalance(oldAcc, oldVal.negate());
-            addToBalance(newAcc, newVal);
+            addToBalance(oldAcc, oldVal.negate()); // estorna (receita somou; estorno subtrai)
+            addToBalance(newAcc, newVal);          // aplica na nova
             accountsRepository.save(oldAcc);
             accountsRepository.save(newAcc);
         } else {
-            // mesma conta: aplica apenas o delta (novo - antigo)
-            addToBalance(oldAcc, newVal.subtract(oldVal));
+            addToBalance(oldAcc, newVal.subtract(oldVal)); // delta (novo - antigo)
             accountsRepository.save(oldAcc);
         }
 
@@ -176,23 +187,44 @@ public class RecipheService {
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
 
         Accounts acc = entity.getAccounts();
-        addToBalance(acc, bd(entity.getValue()).negate()); // estorna
+        addToBalance(acc, bd(entity.getValue()).negate()); // estorna (retira)
         accountsRepository.save(acc);
 
         recipheRepository.delete(entity);
     }
 
-    // ===== Helpers =====
+    // TOGGLES
+    @Transactional
+    public void deactivate(UUID id) {
+        Reciphe r = findById(id);
+        if (r.getActive() == Active.DISABLE) return;
+        Accounts acc = r.getAccounts();
+        addToBalance(acc, bd(r.getValue()).negate()); // receita somou; desativar subtrai
+        accountsRepository.save(acc);
+        r.setActive(Active.DISABLE);
+        recipheRepository.save(r);
+    }
+
+    @Transactional
+    public void activate(UUID id) {
+        Reciphe r = findById(id);
+        if (r.getActive() == Active.ACTIVE) return;
+        assertAccountActive(r.getAccounts());
+        assertCategoryActive(r.getCategory());
+        Accounts acc = r.getAccounts();
+        addToBalance(acc, bd(r.getValue())); // aplica de novo
+        accountsRepository.save(acc);
+        r.setActive(Active.ACTIVE);
+        recipheRepository.save(r);
+    }
+
     private static BigDecimal bd(Float v) {
         double d = (v == null ? 0.0 : v.doubleValue());
         return BigDecimal.valueOf(d).setScale(2, RoundingMode.HALF_UP);
     }
-
     private void addToBalance(Accounts acc, BigDecimal delta) {
         BigDecimal cur = BigDecimal.valueOf(acc.getBalance() == null ? 0.0 : acc.getBalance())
                 .setScale(2, RoundingMode.HALF_UP);
-        acc.setBalance(cur.add(delta).setScale(2, RoundingMode.HALF_UP).floatValue());
+        acc.setBalance(cur.add(delta).setScale(2, RoundingMode.HALF_UP).doubleValue());
     }
-
-
 }

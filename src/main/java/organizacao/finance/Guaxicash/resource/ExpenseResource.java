@@ -7,6 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Expenses;
 import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 import organizacao.finance.Guaxicash.service.ExpenseService;
@@ -24,12 +25,13 @@ public class ExpenseResource {
     @Autowired
     private ExpenseService expenseServiceservice;
 
-    // ===== GETs (dados) =====
-
+    // Listagem com filtro opcional de status
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<Expenses>> findAll() {
-        return ResponseEntity.ok(expenseServiceservice.findAll());
+    public ResponseEntity<List<Expenses>> findAll(@RequestParam(required = false) Active active) {
+        List<Expenses> out = (active == null) ? expenseServiceservice.findAll()
+                : expenseServiceservice.findAll(active);
+        return ResponseEntity.ok(out);
     }
 
     @GetMapping("/{id}")
@@ -47,8 +49,6 @@ public class ExpenseResource {
     ) {
         return ResponseEntity.ok(expenseServiceservice.searchBydateRegistration(from, to));
     }
-
-    // ===== WRITEs (mensagens) =====
 
     @PostMapping("/create")
     @PreAuthorize("isAuthenticated()")
@@ -77,5 +77,21 @@ public class ExpenseResource {
             @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
         expenseServiceservice.delete(UUID.fromString(id));
         return ResponseEntity.ok(new HttpResponseDTO("Despesa removida com sucesso."));
+    }
+
+    @DeleteMapping("/deactivate/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<HttpResponseDTO> deactivate(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
+        expenseServiceservice.deactivate(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Despesa desativada."));
+    }
+
+    @PutMapping("/activate/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<HttpResponseDTO> activate(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
+        expenseServiceservice.activate(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Despesa ativada."));
     }
 }

@@ -6,11 +6,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.Config.SecurityService;
-import organizacao.finance.Guaxicash.entities.Accounts;
-import organizacao.finance.Guaxicash.entities.Category;
+import organizacao.finance.Guaxicash.entities.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
-import organizacao.finance.Guaxicash.entities.Transactions;
-import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.CategoryRepository;
 import organizacao.finance.Guaxicash.repositories.TransactionsRepository;
@@ -19,7 +17,6 @@ import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,20 +24,36 @@ import java.util.UUID;
 @Service
 public class TransactionsService {
 
-    @Autowired
-    private TransactionsRepository transactionsRepository;
+    @Autowired private TransactionsRepository transactionsRepository;
     @Autowired private AccountsRepository accountsRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private SecurityService securityService;
 
     private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
 
-    // ========= READ =========
+    private void assertTxActive(Transactions t) {
+        if (t.getActive() != Active.ACTIVE) throw new IllegalStateException("Transação desativada. Operação não permitida.");
+    }
+    private void assertAccountActive(Accounts acc) {
+        if (acc.getActive() != Active.ACTIVE) throw new IllegalStateException("Conta desativada. Operação não permitida.");
+    }
+    private void assertCategoryActiveIfPresent(Category c) {
+        if (c != null && c.isActive() != Active.ACTIVE) {
+            throw new IllegalStateException("Categoria desativada. Operação não permitida.");
+        }
+    }
 
+    // ========= READ =========
     public List<Transactions> findAll() {
         User me = securityService.obterUserLogin();
-        if (isAdmin(me)) return transactionsRepository.findAll();
-        return transactionsRepository.findByAccounts_User(me);
+        return isAdmin(me) ? transactionsRepository.findAll()
+                : transactionsRepository.findByAccounts_User(me);
+    }
+
+    public List<Transactions> findAll(Active active) {
+        User me = securityService.obterUserLogin();
+        return isAdmin(me) ? transactionsRepository.findAllByActive(active)
+                : transactionsRepository.findByAccounts_UserAndActive(me, active);
     }
 
     public Transactions findById(UUID id) {
@@ -64,9 +77,13 @@ public class TransactionsService {
         );
     }
 
+    // ========= CREATE =========
     @Transactional
     public Transactions insert(Transactions tx) {
         validarValorPositivo(tx.getValue());
+        if (tx.getActive() != null && tx.getActive() == Active.DISABLE) {
+            throw new IllegalArgumentException("Não é possível criar transação já desativada.");
+        }
 
         UUID fromId = tx.getAccounts().getUuid();
         UUID toId   = tx.getForaccounts().getUuid();
@@ -76,6 +93,9 @@ public class TransactionsService {
                 .orElseThrow(() -> new ResourceNotFoundExeption(fromId));
         Accounts to   = accountsRepository.findById(toId)
                 .orElseThrow(() -> new ResourceNotFoundExeption(toId));
+
+        assertAccountActive(from);
+        assertAccountActive(to);
 
         if (from.getUuid().equals(to.getUuid())) {
             throw new IllegalArgumentException("Conta de origem e destino não podem ser a mesma.");
@@ -91,11 +111,13 @@ public class TransactionsService {
         if (catId != null) {
             Category cat = categoryRepository.findById(catId)
                     .orElseThrow(() -> new ResourceNotFoundExeption(catId));
+            assertCategoryActiveIfPresent(cat);
             tx.setCategory(cat);
         }
 
         tx.setAccounts(from);
         tx.setForaccounts(to);
+        tx.setActive(Active.ACTIVE);
 
         BigDecimal amount = bd(tx.getValue());
         addToBalance(from, amount.negate());
@@ -107,10 +129,13 @@ public class TransactionsService {
         return transactionsRepository.save(tx);
     }
 
+    // ========= UPDATE =========
     @Transactional
     public Transactions update(UUID id, Transactions payload) {
         Transactions persisted = transactionsRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
+
+        assertTxActive(persisted);
 
         User me = securityService.obterUserLogin();
         if (!isAdmin(me)) {
@@ -125,6 +150,7 @@ public class TransactionsService {
                 .orElseThrow(() -> new ResourceNotFoundExeption(persisted.getForaccounts().getUuid()));
         BigDecimal oldAmount = bd(persisted.getValue());
 
+        // estorna efeito antigo
         addToBalance(oldFrom, oldAmount);
         addToBalance(oldTo,   oldAmount.negate());
         accountsRepository.save(oldFrom);
@@ -141,6 +167,9 @@ public class TransactionsService {
         Accounts newTo   = accountsRepository.findById(payload.getForaccounts().getUuid())
                 .orElseThrow(() -> new ResourceNotFoundExeption(payload.getForaccounts().getUuid()));
 
+        assertAccountActive(newFrom);
+        assertAccountActive(newTo);
+
         if (!isAdmin(me)) {
             if (!newFrom.getUser().getUuid().equals(me.getUuid()) || !newTo.getUser().getUuid().equals(me.getUuid())) {
                 throw new AccessDeniedException("Você só pode transferir entre suas próprias contas.");
@@ -153,6 +182,7 @@ public class TransactionsService {
         if (payload.getCategory() != null && payload.getCategory().getUuid() != null) {
             Category cat = categoryRepository.findById(payload.getCategory().getUuid())
                     .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCategory().getUuid()));
+            assertCategoryActiveIfPresent(cat);
             persisted.setCategory(cat);
         }
 
@@ -172,6 +202,7 @@ public class TransactionsService {
         return transactionsRepository.save(persisted);
     }
 
+    // ========= HARD DELETE =========
     @Transactional
     public void delete(UUID id) {
         Transactions tx = transactionsRepository.findById(id)
@@ -200,17 +231,45 @@ public class TransactionsService {
         transactionsRepository.delete(tx);
     }
 
+    // ========= TOGGLES =========
+    @Transactional
+    public void deactivateSilently(UUID id) {
+        Transactions t = findById(id); // respeita owner/admin conforme já implementado
+        if (t.getActive() == Active.DISABLE) return;
+        t.setActive(Active.DISABLE);
+        transactionsRepository.save(t);
+    }
+
+    @Transactional
+    public void activate(UUID id) {
+        Transactions t = findById(id);
+        if (t.getActive() == Active.ACTIVE) return;
+        Accounts from = t.getAccounts();
+        Accounts to   = t.getForaccounts();
+
+        assertAccountActive(from);
+        assertAccountActive(to);
+        assertCategoryActiveIfPresent(t.getCategory());
+
+        BigDecimal amount = bd(t.getValue());
+        // Aplica novamente a transferência
+        addToBalance(from, amount.negate());
+        addToBalance(to,   amount);
+        accountsRepository.save(from);
+        accountsRepository.save(to);
+        t.setActive(Active.ACTIVE);
+        transactionsRepository.save(t);
+    }
+
     private static BigDecimal bd(Float v) {
         double d = (v == null ? 0.0 : v.doubleValue());
         return BigDecimal.valueOf(d).setScale(2, RoundingMode.HALF_UP);
     }
-
     private void addToBalance(Accounts acc, BigDecimal delta) {
         BigDecimal cur = BigDecimal.valueOf(acc.getBalance() == null ? 0.0 : acc.getBalance())
                 .setScale(2, RoundingMode.HALF_UP);
-        acc.setBalance(cur.add(delta).setScale(2, RoundingMode.HALF_UP).floatValue());
+        acc.setBalance(cur.add(delta).setScale(2, RoundingMode.HALF_UP).doubleValue());
     }
-
     private static void validarValorPositivo(Float v) {
         if (v == null || v <= 0f) throw new IllegalArgumentException("O valor da transferência deve ser maior que zero.");
     }

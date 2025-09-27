@@ -1,6 +1,7 @@
 package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 
 import java.time.LocalDate;
 import java.util.Date;
@@ -24,13 +25,14 @@ public class Transactions {
     @ManyToOne
     @JoinColumn(name = "id_category")
     private Category category;
+    private Active active = Active.ACTIVE;
 
 
     public Transactions() {
 
     }
 
-    public Transactions(UUID uuid, Float value, String description, LocalDate registrationDate, Accounts foraccounts, Accounts accounts, Category category) {
+    public Transactions(UUID uuid, Float value, String description, LocalDate registrationDate, Accounts foraccounts, Accounts accounts, Category category, Active active) {
         this.uuid = uuid;
         this.value = value;
         this.description = description;
@@ -38,6 +40,7 @@ public class Transactions {
         this.foraccounts = foraccounts;
         this.accounts = accounts;
         this.category = category;
+        this.active = active;
     }
 
     public UUID getUuid() {
@@ -94,5 +97,13 @@ public class Transactions {
 
     public void setCategory(Category category) {
         this.category = category;
+    }
+
+    public Active getActive() {
+        return active;
+    }
+
+    public void setActive(Active active) {
+        this.active = active;
     }
 }

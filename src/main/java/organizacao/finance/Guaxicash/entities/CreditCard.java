@@ -1,6 +1,7 @@
 package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 
 import java.time.LocalDate;
 import java.util.Date;
@@ -24,12 +25,13 @@ public class CreditCard {
     @ManyToOne
     @JoinColumn(name = "accounts_id")
     private Accounts accounts;
+    private Active active = Active.ACTIVE;
 
     public CreditCard() {
 
     }
 
-    public CreditCard(UUID uuid, Double limite, String description, LocalDate closeDate, LocalDate expiryDate, Flags flags, Accounts accounts) {
+    public CreditCard(UUID uuid, Double limite, String description, LocalDate closeDate, LocalDate expiryDate, Flags flags, Accounts accounts, Active active) {
         this.uuid = uuid;
         this.limite = limite;
         this.description = description;
@@ -37,6 +39,7 @@ public class CreditCard {
         this.expiryDate = expiryDate;
         this.flags = flags;
         this.accounts = accounts;
+        this.active = active;
     }
 
     public UUID getUuid() {
@@ -93,5 +96,13 @@ public class CreditCard {
 
     public void setAccounts(Accounts accounts) {
         this.accounts = accounts;
+    }
+
+    public Active getActive() {
+        return active;
+    }
+
+    public void setActive(Active active) {
+        this.active = active;
     }
 }

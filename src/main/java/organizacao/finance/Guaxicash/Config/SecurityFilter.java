@@ -12,10 +12,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
+import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
 
 import java.io.IOException;
 
+// securityFilter.java (exemplo — adapte aos seus nomes)
 @Component
 public class SecurityFilter extends OncePerRequestFilter {
 
@@ -33,29 +36,27 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                String subject = tokenService.validateAccessAndGetSubject(token); // lança se inválido/expirado
-                UserDetails user = userRepository.findByEmail(subject);
+                String email = tokenService.validateAccessAndGetSubject(token); // pegue o subject/email do token
+                User user = (User) userRepository.findByEmail(email);
                 if (user == null) {
-                    write401(res,
-                            "invalid_token",
-                            "Usuário do token não existe mais.");
+                    res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     return;
                 }
 
-                var auth = new UsernamePasswordAuthenticationToken(
-                        user, null, user.getAuthorities());
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                // bloqueia usuário desativado (mesmo com token válido)
+                if (user.getActive() == Active.DISABLE) {
+                    res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    res.setContentType("application/json");
+                    res.getWriter().write("{\"message\":\"Usuário desativado\"}");
+                    return;
+                }
 
-            } catch (TokenExpiredException e) {
-                write401(res,
-                        "invalid_token",
-                        "Sessão expirada. Faça login novamente.");
-                return;
+                UsernamePasswordAuthenticationToken authToken =
+                        new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+                SecurityContextHolder.getContext().setAuthentication(authToken);
 
-            } catch (JWTVerificationException e) {
-                write401(res,
-                        "invalid_token",
-                        "Token inválido");
+            } catch (Exception e) {
+                res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
         }
@@ -63,19 +64,9 @@ public class SecurityFilter extends OncePerRequestFilter {
         chain.doFilter(req, res);
     }
 
-    private String recoverToken(HttpServletRequest request) {
-        String auth = request.getHeader("Authorization");
-        if (auth == null || !auth.startsWith("Bearer ")) return null;
-        return auth.substring(7);
-    }
-
-    private void write401(HttpServletResponse res, String error, String description) throws IOException {
-        if (res.isCommitted()) return;
-        res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        res.setContentType("application/json;charset=UTF-8");
-        // Header padrão do OAuth 2.0 / RFC 6750
-        res.setHeader("WWW-Authenticate",
-                "Bearer error=\"" + error + "\", error_description=\"" + description.replace("\"","'") + "\"");
-        res.getWriter().write("{\"message\":\"" + description + "\"}");
+    private String recoverToken(HttpServletRequest req) {
+        String authHeader = req.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
+        return authHeader.substring(7);
     }
 }

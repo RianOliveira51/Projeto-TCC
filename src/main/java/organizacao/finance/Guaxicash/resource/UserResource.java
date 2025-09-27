@@ -1,20 +1,17 @@
 package organizacao.finance.Guaxicash.resource;
 
-import com.auth0.jwt.exceptions.JWTVerificationException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.Config.TokenService;
-import organizacao.finance.Guaxicash.entities.User;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
+import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.entities.dto.*;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
 import organizacao.finance.Guaxicash.service.UserService;
@@ -27,24 +24,18 @@ import java.util.UUID;
 @RequestMapping(value = "/users")
 public class UserResource {
 
-    @Autowired
-    private UserService userService;
+    @Autowired private UserService userService;
+    @Autowired private UserRepository userRepository;
+    @Autowired private AuthenticationManager authenticationManager;
+    @Autowired private TokenService tokenService;
 
     private BCryptPasswordEncoder bCryptPasswordEncoder;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private AuthenticationManager authenticationManager;
-
-    @Autowired
-    private TokenService tokenService;
-
+    // ===== AUTH =====
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody @Validated AuthenticationDTO data) {
         try {
-            var auth = authenticationManager.authenticate(
+            Authentication auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(data.email(), data.password())
             );
             var user = (User) auth.getPrincipal();
@@ -53,7 +44,7 @@ public class UserResource {
             return ResponseEntity.ok(new LoginReponseDTO(
                     access, "Login feito com sucesso, Bem-vindo ao Guaxicash"
             ));
-        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+        } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new HttpResponseDTO("Usuário ou senha inválidos"));
         } catch (org.springframework.security.core.AuthenticationException e) {
@@ -64,43 +55,36 @@ public class UserResource {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody @Validated RegisterDTO data) {
-        // Verifica se e-mail já está em uso
         if (userRepository.existsByEmail(data.email())) {
-           var messagem = new HttpResponseDTO("Email Já cadastrado");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(messagem);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new HttpResponseDTO("Email Já cadastrado"));
         }
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER);
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER, Active.ACTIVE);
         newUser.setRole(UserRole.USER);
-
         userRepository.save(newUser);
-        var messagem = new HttpResponseDTO("Usuário registrado com sucesso.");
-        return ResponseEntity.ok(messagem);
+        return ResponseEntity.ok(new HttpResponseDTO("Usuário registrado com sucesso."));
     }
 
     @PostMapping("/register/admin")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> registerByAdmin(@RequestBody @Validated RegisterDTO data) {
         if (userRepository.existsByEmail(data.email())) {
-            var msg = new HttpResponseDTO("Email Já cadastrado");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(msg);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new HttpResponseDTO("Email Já cadastrado"));
         }
-
-        var role = (data.role() == null) ? UserRole.USER : data.role(); // pode ser USER ou ADMIN
+        var role = (data.role() == null) ? UserRole.USER : data.role();
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, role);
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, role, Active.ACTIVE);
         newUser.setRole(role);
-
         userRepository.save(newUser);
-        var msg = new HttpResponseDTO("Usuário criado pelo admin com perfil " + role);
-        return ResponseEntity.status(HttpStatus.CREATED).body(msg);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new HttpResponseDTO("Usuário criado pelo admin com perfil " + role));
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<List<User>> findAll() {
-        List<User> list = userService.findall();
-        return ResponseEntity.ok().body(list);
+    public ResponseEntity<List<User>> findAll(@RequestParam(name = "active", required = false) Active active) {
+        List<User> list = (active == null) ? userService.findall() : userService.findAllByActive(active);
+        return ResponseEntity.ok(list);
     }
 
     @GetMapping("/{id}")
@@ -110,15 +94,29 @@ public class UserResource {
     }
 
     @DeleteMapping(value = "/{id}")
-    public ResponseEntity delete(@PathVariable UUID id){
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> delete(@PathVariable UUID id){
         userService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping(value="/{id}")
-    public ResponseEntity update(@PathVariable UUID id, @RequestBody @Validated User user){
-        user = userService.update(id, user);
+    public ResponseEntity<?> update(@PathVariable UUID id, @RequestBody @Validated User user){
+        userService.update(id, user);
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/deactivate/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> softDelete(@PathVariable UUID id) {
+        userService.softDelete(id);
+        return ResponseEntity.ok(new HttpResponseDTO("Usuário desativado."));
+    }
+
+    @PutMapping("/enable/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> enable(@PathVariable UUID id) {
+        userService.enable(id);
+        return ResponseEntity.ok(new HttpResponseDTO("Usuário reativado."));
+    }
 }

@@ -3,15 +3,16 @@ package organizacao.finance.Guaxicash.service;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.Config.SecurityService;
 import organizacao.finance.Guaxicash.entities.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.repositories.*;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
-import java.beans.PropertyDescriptor;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -20,29 +21,45 @@ import java.util.*;
 
 @Service
 public class CreditCardBillService {
-    @Autowired
-    private CreditCardBillRepository creditCardBillRepository;
-    @Autowired
-    private CreditCardRepository creditCardRepository;
-    @Autowired
-    private BillRepository billRepository;
-    @Autowired
-    private BillService billService;
-    @Autowired
-    private CategoryRepository categoryRepository;
-   @Autowired
-    private SecurityService securityService;
 
-    private boolean isAdmin(User me) {
-        return me.getRole() == UserRole.ADMIN;
+    @Autowired private CreditCardBillRepository creditCardBillRepository;
+    @Autowired private CreditCardRepository creditCardRepository;
+    @Autowired private BillRepository billRepository;
+    @Autowired private BillService billService;
+    @Autowired private CategoryRepository categoryRepository;
+    @Autowired private SecurityService securityService;
+
+    private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
+
+    private void assertActiveForPosting(CreditCard card, Bill bill) {
+        if (card.getAccounts().getActive() != Active.ACTIVE) {
+            throw new IllegalStateException("Conta desativada. Não é possível lançar compras.");
+        }
+        if (card.getActive() != Active.ACTIVE) {
+            throw new IllegalStateException("Cartão desativado. Não é possível lançar compras.");
+        }
+        if (bill.getActive() != Active.ACTIVE) {
+            throw new IllegalStateException("Fatura desativada. Não é possível lançar compras.");
+        }
+    }
+
+    private void assertCategoryActive(Category category) {
+        if (category.getActive() != Active.ACTIVE) {
+            throw new IllegalStateException("Categoria desativada. Não é possível lançar compras.");
+        }
     }
 
     public List<CreditCardBill> findAll() {
         User me = securityService.obterUserLogin();
-        if (isAdmin(me)) {
-            return creditCardBillRepository.findAll();
-        }
-        return creditCardBillRepository.findByCreditCard_Accounts_User(me);
+        return isAdmin(me) ? creditCardBillRepository.findAll()
+                : creditCardBillRepository.findByCreditCard_Accounts_User(me);
+    }
+
+    public List<CreditCardBill> findAll(Active active) {
+        User me = securityService.obterUserLogin();
+        return isAdmin(me) ? creditCardBillRepository.findAll().stream()
+                .filter(b -> b.getActive() == active).toList()
+                : creditCardBillRepository.findByCreditCard_Accounts_UserAndActive(me, active);
     }
 
     public CreditCardBill findById(UUID id) {
@@ -57,8 +74,7 @@ public class CreditCardBillService {
 
     public List<CreditCardBill> searchByDate(String field, LocalDate from, LocalDate to, UUID creditCardId) {
         if (from == null && to == null) throw new IllegalArgumentException("Informe ao menos uma data.");
-        if (from == null) from = to;
-        if (to == null)   to   = from;
+        if (from == null) from = to; if (to == null) to = from;
         if (to.isBefore(from)) throw new IllegalArgumentException("'to' não pode ser anterior a 'from'.");
 
         var me = securityService.obterUserLogin();
@@ -79,7 +95,7 @@ public class CreditCardBillService {
 
     @Transactional
     public CreditCardBill insert(CreditCardBill creditCardBill) {
-        // Carregar associações
+        // Associações
         UUID creditCardId = creditCardBill.getCreditCard().getUuid();
         UUID billId       = creditCardBill.getBill().getUuid();
         UUID categoryId   = creditCardBill.getCategory().getUuid();
@@ -91,30 +107,42 @@ public class CreditCardBillService {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundExeption(categoryId));
 
+        // segurança: dono do cartão
+        User me = securityService.obterUserLogin();
+        boolean owner = creditCard.getAccounts().getUser().getUuid().equals(me.getUuid());
+        if (!owner && !isAdmin(me)) throw new AccessDeniedException("Sem permissão para lançar nesta fatura/cartão.");
+
         creditCardBill.setCreditCard(creditCard);
         creditCardBill.setBill(initialBill);
         creditCardBill.setCategory(category);
+        if (creditCardBill.getActive() == null) creditCardBill.setActive(Active.ACTIVE);
 
-        // Valor total da compra
+        if (creditCardBill.getActive() != null && creditCardBill.getActive() == Active.DISABLE) {
+            throw new IllegalArgumentException("Não é possível criar lançamento já desativado.");
+        }
+        creditCardBill.setActive(Active.ACTIVE);
+
+        assertActiveForPosting(creditCard, initialBill);
+        assertCategoryActive(category);
+
+        // Valor total
         BigDecimal total = BigDecimal.valueOf(creditCardBill.getValue() == null ? 0.0 : creditCardBill.getValue())
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // Parcelado?
+        // Parcelas?
         boolean isInstallments = creditCardBill.getInstallments() != null
                 && creditCardBill.getInstallments().trim().equalsIgnoreCase("sim");
         Integer n = creditCardBill.getNumberinstallments();
 
         if (!isInstallments || n == null || n <= 1) {
-            // Sem parcelas -> soma na fatura informada
             addToBillValue(initialBill, total);
             billRepository.save(initialBill);
             return creditCardBillRepository.save(creditCardBill);
         }
 
-        // Parcelado: garantir faturas futuras geradas até 12/2025
+        // Parcelado: garante faturas futuras
         billService.generateBillsUntilDec2025(creditCard);
 
-        // Dividir valor igualmente
         BigDecimal per = total.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP);
         BigDecimal acc = BigDecimal.ZERO;
         List<Bill> changed = new ArrayList<>();
@@ -130,46 +158,35 @@ public class CreditCardBillService {
             addToBillValue(target, amount);
             changed.add(target);
         }
-
         if (!changed.isEmpty()) billRepository.saveAll(changed);
         return creditCardBillRepository.save(creditCardBill);
     }
 
-    // Soma com null-safety (Bill.value é Double)
-    private void addToBillValue(Bill bill, BigDecimal inc) {
-        double current = bill.getValue() == null ? 0.0 : bill.getValue();
-        bill.setValue(BigDecimal.valueOf(current).add(inc).setScale(2, RoundingMode.HALF_UP).doubleValue());
-    }
-
-    // Localiza a fatura do mês (pelo closeDate do mês)
-    private Bill findBillByMonthOrThrow(CreditCard card, YearMonth ym) {
-        return billRepository.findFirstByCreditCardAndCloseDateBetween(
-                        card, ym.atDay(1), ym.atEndOfMonth()
-                )
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Fatura do cartão %s não encontrada para %s".formatted(
-                                card.getUuid(), ym
-                        )
-                ));
-    }
-
     @Transactional
     public CreditCardBill update(UUID id, CreditCardBill payload) {
-        // carrega atual
         CreditCardBill persisted = creditCardBillRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
+
+        // carregar novas associações para validar antes:
+        CreditCard cc  = creditCardRepository.findById(payload.getCreditCard().getUuid())
+                .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCreditCard().getUuid()));
+        Bill bil = billRepository.findById(payload.getBill().getUuid())
+                .orElseThrow(() -> new ResourceNotFoundExeption(payload.getBill().getUuid()));
+        Category cat = categoryRepository.findById(payload.getCategory().getUuid())
+                .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCategory().getUuid()));
+
+        // segurança: dono
+        User me = securityService.obterUserLogin();
+        boolean owner = cc.getAccounts().getUser().getUuid().equals(me.getUuid());
+        if (!owner && !isAdmin(me)) throw new AccessDeniedException("Sem permissão para alterar este lançamento.");
+
+        assertActiveForPosting(cc, bil); // cartão/conta/bill precisam estar ativos
+        assertCategoryActive(cat);
 
         // 1) estorna efeito antigo
         adjustBills(persisted, -1);
 
-        // 2) reata associações (PUT completo)
-        var cc  = creditCardRepository.findById(payload.getCreditCard().getUuid())
-                .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCreditCard().getUuid()));
-        var bil = billRepository.findById(payload.getBill().getUuid())
-                .orElseThrow(() -> new ResourceNotFoundExeption(payload.getBill().getUuid()));
-        var cat = categoryRepository.findById(payload.getCategory().getUuid())
-                .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCategory().getUuid()));
-
+        // 2) aplica novos dados
         persisted.setCreditCard(cc);
         persisted.setBill(bil);
         persisted.setCategory(cat);
@@ -189,35 +206,72 @@ public class CreditCardBillService {
     public void delete(UUID id) {
         var entity = creditCardBillRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
-        // estorna e apaga
         adjustBills(entity, -1);
         creditCardBillRepository.delete(entity);
     }
 
-    //compacto: aplica (sign=+1) ou estorna (sign=-1) nas faturas
+    // ===== Toggle (deactivate/activate) com ajuste nas Bills
+    @Transactional
+    public void deactivate(UUID id) {
+        var entity = creditCardBillRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundExeption(id));
+        // segurança: dono do cartão
+        User me = securityService.obterUserLogin();
+        boolean owner = entity.getCreditCard().getAccounts().getUser().getUuid().equals(me.getUuid());
+        if (!owner && !isAdmin(me)) throw new AccessDeniedException("Sem permissão para desativar este lançamento.");
+
+        if (entity.getActive() == Active.DISABLE) return; // idempotente
+        adjustBills(entity, -1); // estorna valores
+        entity.setActive(Active.DISABLE);
+        creditCardBillRepository.save(entity);
+    }
+
+    @Transactional
+    public void activate(UUID id) {
+        var entity = creditCardBillRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundExeption(id));
+        // segurança: dono do cartão
+        User me = securityService.obterUserLogin();
+        boolean owner = entity.getCreditCard().getAccounts().getUser().getUuid().equals(me.getUuid());
+        if (!owner && !isAdmin(me)) throw new AccessDeniedException("Sem permissão para reativar este lançamento.");
+
+        if (entity.getActive() == Active.ACTIVE) return; // idempotente
+        adjustBills(entity, +1); // reaplica valores
+        entity.setActive(Active.ACTIVE);
+        creditCardBillRepository.save(entity);
+    }
+
+    // ===== helpers =====
+    private void addToBillValue(Bill bill, BigDecimal inc) {
+        double current = bill.getValue() == null ? 0.0 : bill.getValue();
+        bill.setValue(BigDecimal.valueOf(current).add(inc).setScale(2, RoundingMode.HALF_UP).doubleValue());
+    }
+
+    private Bill findBillByMonthOrThrow(CreditCard card, YearMonth ym) {
+        return billRepository.findFirstByCreditCardAndCloseDateBetween(card, ym.atDay(1), ym.atEndOfMonth())
+                .orElseThrow(() -> new EntityNotFoundException("Fatura do cartão " + card.getUuid() + " não encontrada para " + ym));
+    }
+
+    /** sign=+1 aplica; sign=-1 estorna */
     private void adjustBills(CreditCardBill ccb, int sign) {
-        billService.generateBillsUntilDec2025(ccb.getCreditCard()); // garante faturas futuras
+        billService.generateBillsUntilDec2025(ccb.getCreditCard()); // garante futuras
 
         BigDecimal total = BigDecimal.valueOf(ccb.getValue() == null ? 0.0 : ccb.getValue())
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // installments =m("sim" / "nao")
-        boolean parcelado = "sim".equalsIgnoreCase(
-                java.util.Objects.toString(ccb.getInstallments(), "").trim()
-        );
-
+        boolean parcelado = "sim".equalsIgnoreCase(Objects.toString(ccb.getInstallments(), "").trim());
         int n = parcelado ? Math.max(1, ccb.getNumberinstallments()) : 1;
 
-        java.time.YearMonth base = java.time.YearMonth.from(ccb.getBill().getCloseDate());
+        YearMonth base = YearMonth.from(ccb.getBill().getCloseDate());
         BigDecimal per = (n == 1) ? total : total.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP);
         BigDecimal acc = BigDecimal.ZERO;
 
-        java.util.List<Bill> changed = new java.util.ArrayList<>();
+        List<Bill> changed = new ArrayList<>();
         for (int i = 0; i < n; i++) {
-            java.time.YearMonth ym = base.plusMonths(i);
+            YearMonth ym = base.plusMonths(i);
             Bill b = billRepository.findFirstByCreditCardAndCloseDateBetween(
                     ccb.getCreditCard(), ym.atDay(1), ym.atEndOfMonth()
-            ).orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Fatura não encontrada para " + ym));
+            ).orElseThrow(() -> new EntityNotFoundException("Fatura não encontrada para " + ym));
 
             BigDecimal amt = (i < n - 1) ? per : total.subtract(acc).setScale(2, RoundingMode.HALF_UP);
             acc = acc.add(amt);
@@ -229,6 +283,4 @@ public class CreditCardBillService {
         }
         if (!changed.isEmpty()) billRepository.saveAll(changed);
     }
-
-
 }

@@ -7,6 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Transactions;
 import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 import organizacao.finance.Guaxicash.service.TransactionsService;
@@ -24,11 +25,11 @@ public class TransactionsResource {
     @Autowired
     private TransactionsService service;
 
-
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<Transactions>> findAll() {
-        return ResponseEntity.ok(service.findAll());
+    public ResponseEntity<List<Transactions>> findAll(@RequestParam(required = false) Active active) {
+        var out = (active == null) ? service.findAll() : service.findAll(active);
+        return ResponseEntity.ok(out);
     }
 
     @GetMapping("/{id}")
@@ -46,7 +47,6 @@ public class TransactionsResource {
     ) {
         return ResponseEntity.ok(service.searchByRegistrationDate(from, to));
     }
-
 
     @PostMapping("/create")
     @PreAuthorize("isAuthenticated()")
@@ -75,5 +75,21 @@ public class TransactionsResource {
             @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
         service.delete(UUID.fromString(id));
         return ResponseEntity.ok(new HttpResponseDTO("Transação removida com sucesso."));
+    }
+
+    @DeleteMapping("/deactivate/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<HttpResponseDTO> deactivate(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
+        service.deactivateSilently(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Transação desativada."));
+    }
+
+    @PutMapping("/activate/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<HttpResponseDTO> activate(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
+        service.activate(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Transação ativada."));
     }
 }

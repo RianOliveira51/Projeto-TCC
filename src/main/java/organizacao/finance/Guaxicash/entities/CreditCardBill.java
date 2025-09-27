@@ -2,6 +2,7 @@ package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
 import org.springframework.cglib.core.Local;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 
 import java.time.LocalDate;
 import java.util.Date;
@@ -28,12 +29,13 @@ public class CreditCardBill {
     @ManyToOne
     @JoinColumn(name = "id_category")
     private Category category;
+    private Active active = Active.ACTIVE;
 
     public CreditCardBill() {
 
     }
 
-    public CreditCardBill(UUID uuid, Double value, String description, LocalDate registrationDate,String Installments,int Numberinstallments, CreditCard creditCard, Bill bill, Category category) {
+    public CreditCardBill(UUID uuid, Double value, String description, LocalDate registrationDate,String Installments,int Numberinstallments, CreditCard creditCard, Bill bill, Category category, Active active) {
         this.uuid = uuid;
         this.value = value;
         this.description = description;
@@ -43,6 +45,7 @@ public class CreditCardBill {
         this.creditCard = creditCard;
         this.bill = bill;
         this.category = category;
+        this.active = active;
     }
 
     public UUID getUuid() {
@@ -115,6 +118,14 @@ public class CreditCardBill {
 
     public void setCategory(Category category) {
         this.category = category;
+    }
+
+    public Active getActive() {
+        return active;
+    }
+
+    public void setActive(Active active) {
+        this.active = active;
     }
 }
 

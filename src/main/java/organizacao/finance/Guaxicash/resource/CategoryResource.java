@@ -6,6 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.entities.Category;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 import organizacao.finance.Guaxicash.service.CategoryService;
 
@@ -31,13 +32,20 @@ public class CategoryResource {
     }
 
     @GetMapping
-    public ResponseEntity<List<Category>> findAll(@RequestParam(required = false) String earn) {
+    public ResponseEntity<List<Category>> findAll(
+            @RequestParam(required = false) String earn,
+            @RequestParam(required = false) Active active
+    ) {
         List<Category> list;
-        if (earn == null) {
+        if (earn == null && active == null) {
             list = categoryService.findAll();
+        } else if (earn == null) {
+            list = categoryService.findAll(active);
         } else {
-            Boolean parsed = parseEarnOrThrow(earn); // lança IAE se inválido -> handler 400
-            list = categoryService.findByEarn(parsed);
+            Boolean parsed = parseEarnOrThrow(earn);
+            list = (active == null)
+                    ? categoryService.findByEarn(parsed)
+                    : categoryService.findByEarn(parsed, active);
         }
         return ResponseEntity.ok(list);
     }
@@ -63,6 +71,22 @@ public class CategoryResource {
             @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
         categoryService.delete(UUID.fromString(id));
         return ResponseEntity.ok(new HttpResponseDTO("Categoria removida com sucesso."));
+    }
+
+    @DeleteMapping("/deactivate/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public ResponseEntity<HttpResponseDTO> deactivate(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
+        categoryService.deactivate(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Categoria desativada."));
+    }
+
+    @PutMapping("/activate/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public ResponseEntity<HttpResponseDTO> activate(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
+        categoryService.activate(UUID.fromString(id));
+        return ResponseEntity.ok(new HttpResponseDTO("Categoria ativada."));
     }
 
     private static Boolean parseEarnOrThrow(String v) {

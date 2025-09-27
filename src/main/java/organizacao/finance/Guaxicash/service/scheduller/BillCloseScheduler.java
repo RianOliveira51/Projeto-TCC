@@ -35,7 +35,7 @@ public class BillCloseScheduler {
 
         // 1) Fechar: OPEN/FUTURE_BILLS com closeDate <= hoje → CLOSE
         List<BillPay> eligible = Arrays.asList(BillPay.OPEN, BillPay.FUTURE_BILLS);
-        int closed = billRepository.markBillsClosed(today, BillPay.CLOSE, eligible);
+        int closed = billRepository.markBillsClosed(today, BillPay.CLOSE_PENDING, eligible);
 
         // 2) Abrir: FUTURE_BILLS cujo período inclui hoje → OPEN
         int opened = billRepository.markBillsOpenForToday(today, BillPay.OPEN, BillPay.FUTURE_BILLS);
