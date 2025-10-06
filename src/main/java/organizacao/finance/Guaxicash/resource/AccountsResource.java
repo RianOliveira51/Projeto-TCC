@@ -82,6 +82,6 @@ public class AccountsResource {
     public ResponseEntity<HttpResponseDTO> activate(
             @PathVariable @org.hibernate.validator.constraints.UUID(message="UUID inválido") String id) {
         accountsService.activate(UUID.fromString(id));
-        return ResponseEntity.ok(new HttpResponseDTO("Conta ativada. Cartões, faturas, despesas e receitas também foramativados."));
+        return ResponseEntity.ok(new HttpResponseDTO("Conta ativada. Cartões, faturas, despesas e receitas também foram ativados."));
     }
 }

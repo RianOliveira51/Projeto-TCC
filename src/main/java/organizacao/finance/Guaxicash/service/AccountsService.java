@@ -3,6 +3,7 @@ package organizacao.finance.Guaxicash.service;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +67,7 @@ public class AccountsService {
         return isAdmin(me) ? accountsRepository.findAllByActive(active)
                 : accountsRepository.findByUserAndActive(me, active);
     }
+
 
     public Accounts findById(UUID id) {
         User me = securityService.obterUserLogin();

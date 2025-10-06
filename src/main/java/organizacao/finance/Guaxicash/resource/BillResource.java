@@ -77,13 +77,26 @@ public class BillResource {
 
     @GetMapping("/search")
     public ResponseEntity<List<Bill>> listByStatuses(
-            @RequestParam List<BillPay> status,
-            @RequestParam(name="active", required=false) Active active
+            @RequestParam(required = false) List<BillPay> status, 
+            @RequestParam(name="active", required = false) Active active
     ) {
         Sort sort = Sort.by("payDate").ascending();
-        List<Bill> out = (active == null) ? billRepository.findByStatusIn(status, sort)
-                : billRepository.findByStatusInAndActive(status, active, sort);
-        return ResponseEntity.ok(out);
+
+        if (active != null && (status == null || status.isEmpty())) {
+            // Só filtra por ativo/inativo
+            return ResponseEntity.ok(billRepository.findByActive(active, sort));
+        }
+
+        if (active != null) {
+            return ResponseEntity.ok(billRepository.findByStatusInAndActive(status, active, sort));
+        }
+
+        if (status != null && !status.isEmpty()) {
+            return ResponseEntity.ok(billRepository.findByStatusIn(status, sort));
+        }
+
+        // nenhum filtro: defina o comportamento padrão (ex.: só ativos)
+        return ResponseEntity.ok(billRepository.findByActive(Active.ACTIVE, sort));
     }
 
     @PostMapping("/payment/{billId}")

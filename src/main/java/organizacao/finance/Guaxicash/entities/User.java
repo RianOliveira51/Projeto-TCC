@@ -24,11 +24,12 @@ public class User implements UserDetails {
     private String password;
     private UserRole role = UserRole.USER;
     private Active active = Active.ACTIVE;
+    private int XP;
 
     public User() {
     }
 
-    public User(UUID uuid, String name, String email, String phone, String password, UserRole role, Active active) {
+    public User(UUID uuid, String name, String email, String phone, String password, UserRole role, Active active, int XP) {
         this.uuid = uuid;
         this.name = name;
         this.email = email;
@@ -36,6 +37,7 @@ public class User implements UserDetails {
         this.password = password;
         this.role = UserRole.USER;
         this.active = active;
+        this.XP = XP;
     }
 
     public UUID getUuid() {
@@ -108,6 +110,14 @@ public class User implements UserDetails {
 
     public void setActive(Active active) {
         this.active = active;
+    }
+
+    public int getXP() {
+        return XP;
+    }
+
+    public void setXP(int XP) {
+        this.XP = XP;
     }
 
     @Override

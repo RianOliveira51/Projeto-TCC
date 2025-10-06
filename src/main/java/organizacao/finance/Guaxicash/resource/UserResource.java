@@ -60,7 +60,7 @@ public class UserResource {
                     .body(new HttpResponseDTO("Email Já cadastrado"));
         }
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER, Active.ACTIVE);
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER, Active.ACTIVE, 0);
         newUser.setRole(UserRole.USER);
         userRepository.save(newUser);
         return ResponseEntity.ok(new HttpResponseDTO("Usuário registrado com sucesso."));
@@ -74,7 +74,7 @@ public class UserResource {
         }
         var role = (data.role() == null) ? UserRole.USER : data.role();
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, role, Active.ACTIVE);
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, role, Active.ACTIVE, 0);
         newUser.setRole(role);
         userRepository.save(newUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(new HttpResponseDTO("Usuário criado pelo admin com perfil " + role));

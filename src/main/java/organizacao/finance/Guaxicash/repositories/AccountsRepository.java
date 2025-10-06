@@ -1,5 +1,6 @@
 package organizacao.finance.Guaxicash.repositories;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
@@ -14,4 +15,5 @@ public interface AccountsRepository extends JpaRepository<Accounts, UUID> {
     // filtros por active
     List<Accounts> findAllByActive(Active active);
     List<Accounts> findByUserAndActive(User user, Active active);
+
 }

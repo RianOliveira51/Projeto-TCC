@@ -44,6 +44,8 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
     List<Bill> findByCreditCard_UuidAndStatusAndActive(UUID creditCardId, BillPay status, Active active, Sort sort);
     List<Bill> findByStatusInAndActive(List<BillPay> statuses, Active active, Sort sort);
 
+    List<Bill> findByActive(Active active, Sort sort);
+
     // ==== seus updates programados ====
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

@@ -62,6 +62,23 @@ public class CreditCardBillService {
                 : creditCardBillRepository.findByCreditCard_Accounts_UserAndActive(me, active);
     }
 
+    public List<CreditCardBill> findAllByBill(UUID billId, Active active) {
+        User me = securityService.obterUserLogin();
+        Sort sort = Sort.by("registrationDate").ascending();
+
+        if (isAdmin(me)) {
+            billRepository.findById(billId).orElseThrow(() -> new ResourceNotFoundExeption(billId));
+            return (active == null)
+                    ? creditCardBillRepository.findByBill_Uuid(billId, sort)
+                    : creditCardBillRepository.findByBill_UuidAndActive(billId, active, sort);
+        }
+
+        UUID userId = me.getUuid();
+        return (active == null)
+                ? creditCardBillRepository.findByBill_UuidAndCreditCard_Accounts_User_Uuid(billId, userId, sort)
+                : creditCardBillRepository.findByBill_UuidAndCreditCard_Accounts_User_UuidAndActive(billId, userId, active, sort);
+    }
+
     public CreditCardBill findById(UUID id) {
         User me = securityService.obterUserLogin();
         if (isAdmin(me)) {
@@ -283,4 +300,5 @@ public class CreditCardBillService {
         }
         if (!changed.isEmpty()) billRepository.saveAll(changed);
     }
+
 }

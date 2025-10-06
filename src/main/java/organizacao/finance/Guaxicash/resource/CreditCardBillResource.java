@@ -51,6 +51,17 @@ public class CreditCardBillResource {
         return ResponseEntity.ok(creditCardBillService.searchByDate(field, from, to, ccId));
     }
 
+    // Por fatura
+    @GetMapping("/bill/{billId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CreditCardBill>> findByBill(
+            @PathVariable @org.hibernate.validator.constraints.UUID(message="UUID inválido") String billId,
+            @RequestParam(name="active", required=false) Active active
+    ) {
+        List<CreditCardBill> list = creditCardBillService.findAllByBill(UUID.fromString(billId), active);
+        return ResponseEntity.ok(list);
+    }
+
     @PostMapping("/create")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<HttpResponseDTO> create(@RequestBody CreditCardBill creditCardBill) {

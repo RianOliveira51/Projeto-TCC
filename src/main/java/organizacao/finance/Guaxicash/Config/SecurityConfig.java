@@ -39,6 +39,7 @@ public class SecurityConfig {
                         // Rotas públicas
                         .requestMatchers(HttpMethod.POST, "/users/login", "/users/register").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/error").permitAll()
                         // Demais rotas tem que estar autenticado.
                         .anyRequest().authenticated()
                 )

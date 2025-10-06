@@ -31,4 +31,16 @@ public interface CreditCardBillRepository extends JpaRepository<CreditCardBill, 
     // ==== novos filtros por Active ====
     List<CreditCardBill> findByCreditCard_Accounts_UserAndActive(User user, Active active);
     Optional<CreditCardBill> findByUuidAndActive(UUID id, Active active);
+
+    // ADMIN: por bill, sem user
+    List<CreditCardBill> findByBill_Uuid(UUID billId, Sort sort);
+    List<CreditCardBill> findByBill_UuidAndActive(UUID billId, Active active, Sort sort);
+
+
+    // USER: por bill, filtrando pelo dono
+    List<CreditCardBill> findByBill_UuidAndCreditCard_Accounts_User_Uuid(
+            UUID billId, UUID userId, Sort sort);
+
+    List<CreditCardBill> findByBill_UuidAndCreditCard_Accounts_User_UuidAndActive(
+            UUID billId, UUID userId, Active active, Sort sort);
 }

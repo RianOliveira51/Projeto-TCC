@@ -30,6 +30,7 @@ public class BillCloseScheduler {
 
     @Transactional
     @Scheduled(cron = "0 0 0 * * *", zone = "America/Sao_Paulo")
+    //@Scheduled(cron = "* * * * * *", zone = "America/Sao_Paulo")
     public void closeBillsWhoseCloseDateArrived() {
         LocalDate today = LocalDate.now(ZONE);
 

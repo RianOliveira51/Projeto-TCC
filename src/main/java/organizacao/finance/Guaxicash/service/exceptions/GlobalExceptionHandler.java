@@ -4,9 +4,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
+
+import org.springframework.web.servlet.NoHandlerFoundException;
 import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 
 
@@ -56,6 +58,26 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<HttpResponseDTO> handleIllegalState(IllegalStateException ex) {
         return body(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    // 404 – rota/endpoint inexistente
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<HttpResponseDTO> handleNoHandler(NoHandlerFoundException ex) {
+        // ex.getHttpMethod(), ex.getRequestURL() disponíveis se quiser logar
+        return body(HttpStatus.NOT_FOUND, "Essa rota não existe.");
+    }
+
+    // 405 – método HTTP não suportado para a rota
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<HttpResponseDTO> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        // Pode incluir ex.getMethod() e ex.getSupportedHttpMethods() no log
+        return body(HttpStatus.METHOD_NOT_ALLOWED, "Esse método HTTP não é permitido para esta rota.");
+    }
+
+    // (opcional) 403 específico do Spring Security
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<HttpResponseDTO> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        return body(HttpStatus.FORBIDDEN, "Sem permissão para acessar este recurso.");
     }
 
 
