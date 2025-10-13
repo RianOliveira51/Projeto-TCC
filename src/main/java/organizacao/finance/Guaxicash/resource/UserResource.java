@@ -100,10 +100,21 @@ public class UserResource {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping(value="/{id}")
-    public ResponseEntity<?> update(@PathVariable UUID id, @RequestBody @Validated User user){
-        userService.update(id, user);
-        return ResponseEntity.ok().build();
+    @PutMapping("/{id}")
+    public ResponseEntity<?> update(@PathVariable UUID id, @RequestBody @Validated UpdateUserDTO data) {
+        try {
+            User patch = new User();
+            patch.setName(data.name());
+            patch.setEmail(data.email());
+            patch.setPhone(data.phone());
+            patch.setPassword(data.password());
+
+            userService.update(id, patch);
+            return ResponseEntity.ok(new HttpResponseDTO("Usuário atualizado."));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new HttpResponseDTO("e-mail já cadastrado"));
+        }
     }
 
     @DeleteMapping("/deactivate/{id}")
