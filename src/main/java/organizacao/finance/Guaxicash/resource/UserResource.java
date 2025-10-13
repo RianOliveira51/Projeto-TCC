@@ -5,6 +5,7 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -100,16 +101,15 @@ public class UserResource {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable UUID id, @RequestBody @Validated UpdateUserDTO data) {
+    @PutMapping("/update")
+    public ResponseEntity<?> update(@AuthenticationPrincipal User me, @RequestBody @Validated UpdateUserDTO data) {
         try {
             User patch = new User();
             patch.setName(data.name());
             patch.setEmail(data.email());
             patch.setPhone(data.phone());
             patch.setPassword(data.password());
-
-            userService.update(id, patch);
+            userService.update(me.getUuid(), patch);
             return ResponseEntity.ok(new HttpResponseDTO("Usuário atualizado."));
         } catch (RuntimeException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
