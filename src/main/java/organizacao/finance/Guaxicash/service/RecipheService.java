@@ -10,6 +10,7 @@ import organizacao.finance.Guaxicash.entities.*;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.repositories.*;
+import organizacao.finance.Guaxicash.service.EventGamification.GamificationEventPublisher;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
 import java.math.BigDecimal;
@@ -27,6 +28,7 @@ public class RecipheService {
     @Autowired private UserRepository userRepository;
     @Autowired private SecurityService securityService;
     @Autowired private CategoryRepository categoryRepository;
+    @Autowired private GamificationEventPublisher gamificationEventPublisher;
 
     private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
 
@@ -118,6 +120,12 @@ public class RecipheService {
         // soma no saldo
         addToBalance(accounts, bd(reciphe.getValue()));
         accountsRepository.save(accounts);
+
+        gamificationEventPublisher.incomeCreated(
+                reciphe.getAccounts().getUser().getUuid(),
+                reciphe.getUuid(),
+                reciphe.getDateRegistration()
+        );
 
         return recipheRepository.save(reciphe);
     }

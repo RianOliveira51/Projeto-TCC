@@ -12,6 +12,7 @@ import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.CategoryRepository;
 import organizacao.finance.Guaxicash.repositories.ExpenseRepository;
+import organizacao.finance.Guaxicash.service.EventGamification.GamificationEventPublisher;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
 import java.math.BigDecimal;
@@ -26,6 +27,7 @@ public class ExpenseService {
     @Autowired private AccountsRepository accountsRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private SecurityService securityService;
+    @Autowired private GamificationEventPublisher gamificationEventPublisher;
 
     private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
 
@@ -39,7 +41,7 @@ public class ExpenseService {
         if (c.isActive() != Active.ACTIVE) throw new IllegalStateException("Categoria desativada. Operação não permitida.");
     }
 
-    // ===== READ =====
+
     public List<Expenses> findAll() {
         User me = securityService.obterUserLogin();
         return isAdmin(me) ? expenseRepository.findAll() : expenseRepository.findByAccounts_User(me);
@@ -105,6 +107,12 @@ public class ExpenseService {
         // subtrai do saldo
         addToBalance(accounts, bd(expense.getValue()).negate());
         accountsRepository.save(accounts);
+
+        gamificationEventPublisher.expenseCreated(
+                expense.getAccounts().getUser().getUuid(),
+                expense.getUuid(),
+                expense.getDateRegistration()
+        );
 
         return expenseRepository.save(expense);
     }

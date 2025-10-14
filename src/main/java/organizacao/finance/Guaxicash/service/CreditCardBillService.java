@@ -49,6 +49,7 @@ public class CreditCardBillService {
         }
     }
 
+    // ================== READ ==================
     public List<CreditCardBill> findAll() {
         User me = securityService.obterUserLogin();
         return isAdmin(me) ? creditCardBillRepository.findAll()
@@ -91,7 +92,8 @@ public class CreditCardBillService {
 
     public List<CreditCardBill> searchByDate(String field, LocalDate from, LocalDate to, UUID creditCardId) {
         if (from == null && to == null) throw new IllegalArgumentException("Informe ao menos uma data.");
-        if (from == null) from = to; if (to == null) to = from;
+        if (from == null) from = to;
+        if (to == null) to = from;
         if (to.isBefore(from)) throw new IllegalArgumentException("'to' não pode ser anterior a 'from'.");
 
         var me = securityService.obterUserLogin();
@@ -110,9 +112,15 @@ public class CreditCardBillService {
         }
     }
 
+    // ================== CREATE ==================
+    /**
+     * Se não for parcelado, cria um único item na fatura informada.
+     * Se for parcelado, cria N itens — um para cada fatura futura —
+     * e ajusta o valor de cada fatura correspondente.
+     */
     @Transactional
     public CreditCardBill insert(CreditCardBill creditCardBill) {
-        // Associações
+        // Associações obrigatórias
         UUID creditCardId = creditCardBill.getCreditCard().getUuid();
         UUID billId       = creditCardBill.getBill().getUuid();
         UUID categoryId   = creditCardBill.getCategory().getUuid();
@@ -133,8 +141,7 @@ public class CreditCardBillService {
         creditCardBill.setBill(initialBill);
         creditCardBill.setCategory(category);
         if (creditCardBill.getActive() == null) creditCardBill.setActive(Active.ACTIVE);
-
-        if (creditCardBill.getActive() != null && creditCardBill.getActive() == Active.DISABLE) {
+        if (creditCardBill.getActive() == Active.DISABLE) {
             throw new IllegalArgumentException("Não é possível criar lançamento já desativado.");
         }
         creditCardBill.setActive(Active.ACTIVE);
@@ -151,18 +158,20 @@ public class CreditCardBillService {
                 && creditCardBill.getInstallments().trim().equalsIgnoreCase("sim");
         Integer n = creditCardBill.getNumberinstallments();
 
+        // Caso NÃO parcelado: adiciona um item na fatura atual
         if (!isInstallments || n == null || n <= 1) {
             addToBillValue(initialBill, total);
             billRepository.save(initialBill);
             return creditCardBillRepository.save(creditCardBill);
         }
 
-        // Parcelado: garante faturas futuras
+        // Caso parcelado: cria um item por parcela na fatura correta
         billService.generateBillsUntilDec2025(creditCard);
 
         BigDecimal per = total.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP);
         BigDecimal acc = BigDecimal.ZERO;
         List<Bill> changed = new ArrayList<>();
+        List<CreditCardBill> itensParcelas = new ArrayList<>();
 
         YearMonth baseYm = YearMonth.from(initialBill.getCloseDate());
         for (int i = 0; i < n; i++) {
@@ -172,19 +181,50 @@ public class CreditCardBillService {
             BigDecimal amount = (i < n - 1) ? per : total.subtract(acc).setScale(2, RoundingMode.HALF_UP);
             acc = acc.add(amount);
 
+            // 1) Ajusta o total da fatura de destino
             addToBillValue(target, amount);
             changed.add(target);
+
+            // 2) Cria o item desta parcela apontando para a fatura correta
+            CreditCardBill parcela = new CreditCardBill();
+            parcela.setCreditCard(creditCard);
+            parcela.setBill(target);
+            parcela.setCategory(category);
+            parcela.setRegistrationDate(creditCardBill.getRegistrationDate()); // data da compra
+            parcela.setDescription(appendParcelaSuffix(creditCardBill.getDescription(), i + 1, n));
+            parcela.setValue(amount.doubleValue());
+            parcela.setInstallments("sim");
+            parcela.setNumberinstallments(n);
+            parcela.setActive(Active.ACTIVE);
+
+            itensParcelas.add(parcela);
         }
+
         if (!changed.isEmpty()) billRepository.saveAll(changed);
-        return creditCardBillRepository.save(creditCardBill);
+        List<CreditCardBill> salvos = creditCardBillRepository.saveAll(itensParcelas);
+
+        // retorna a 1ª parcela (a da fatura corrente)
+        return salvos.stream()
+                .filter(cb -> cb.getBill().getUuid().equals(initialBill.getUuid()))
+                .findFirst()
+                .orElse(salvos.get(0));
     }
 
+    // ================== UPDATE ==================
+    /**
+     * Atualiza UM item (uma parcela ou compra à vista):
+     * - estorna o valor da fatura antiga
+     * - troca dados/associações
+     * - aplica o valor na fatura nova
+     *
+     * (Não redistribui grupo de parcelas; cada item é independente.)
+     */
     @Transactional
     public CreditCardBill update(UUID id, CreditCardBill payload) {
         CreditCardBill persisted = creditCardBillRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
 
-        // carregar novas associações para validar antes:
+        // carregar novas associações
         CreditCard cc  = creditCardRepository.findById(payload.getCreditCard().getUuid())
                 .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCreditCard().getUuid()));
         Bill bil = billRepository.findById(payload.getBill().getUuid())
@@ -192,18 +232,21 @@ public class CreditCardBillService {
         Category cat = categoryRepository.findById(payload.getCategory().getUuid())
                 .orElseThrow(() -> new ResourceNotFoundExeption(payload.getCategory().getUuid()));
 
-        // segurança: dono
+        // segurança
         User me = securityService.obterUserLogin();
         boolean owner = cc.getAccounts().getUser().getUuid().equals(me.getUuid());
         if (!owner && !isAdmin(me)) throw new AccessDeniedException("Sem permissão para alterar este lançamento.");
 
-        assertActiveForPosting(cc, bil); // cartão/conta/bill precisam estar ativos
+        assertActiveForPosting(cc, bil);
         assertCategoryActive(cat);
 
-        // 1) estorna efeito antigo
-        adjustBills(persisted, -1);
+        // 1) Estorna valor da fatura anterior
+        BigDecimal antigo = BigDecimal.valueOf(persisted.getValue() == null ? 0.0 : persisted.getValue())
+                .setScale(2, RoundingMode.HALF_UP);
+        addToBillValue(persisted.getBill(), antigo.negate());
+        billRepository.save(persisted.getBill());
 
-        // 2) aplica novos dados
+        // 2) Aplica novos dados
         persisted.setCreditCard(cc);
         persisted.setBill(bil);
         persisted.setCategory(cat);
@@ -213,32 +256,46 @@ public class CreditCardBillService {
         persisted.setInstallments(payload.getInstallments());
         persisted.setNumberinstallments(payload.getNumberinstallments());
 
-        // 3) reaplica efeito novo
-        adjustBills(persisted, +1);
+        // 3) Aplica valor na nova fatura
+        BigDecimal novo = BigDecimal.valueOf(persisted.getValue() == null ? 0.0 : persisted.getValue())
+                .setScale(2, RoundingMode.HALF_UP);
+        addToBillValue(bil, novo);
+        billRepository.save(bil);
 
         return creditCardBillRepository.save(persisted);
     }
 
+    // ================== DELETE ==================
     @Transactional
     public void delete(UUID id) {
         var entity = creditCardBillRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
-        adjustBills(entity, -1);
+
+        BigDecimal val = BigDecimal.valueOf(entity.getValue() == null ? 0.0 : entity.getValue())
+                .setScale(2, RoundingMode.HALF_UP);
+        addToBillValue(entity.getBill(), val.negate());
+        billRepository.save(entity.getBill());
+
         creditCardBillRepository.delete(entity);
     }
 
-    // ===== Toggle (deactivate/activate) com ajuste nas Bills
+    // ================== TOGGLES ==================
     @Transactional
     public void deactivate(UUID id) {
         var entity = creditCardBillRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
-        // segurança: dono do cartão
+
         User me = securityService.obterUserLogin();
         boolean owner = entity.getCreditCard().getAccounts().getUser().getUuid().equals(me.getUuid());
         if (!owner && !isAdmin(me)) throw new AccessDeniedException("Sem permissão para desativar este lançamento.");
 
         if (entity.getActive() == Active.DISABLE) return; // idempotente
-        adjustBills(entity, -1); // estorna valores
+
+        BigDecimal val = BigDecimal.valueOf(entity.getValue() == null ? 0.0 : entity.getValue())
+                .setScale(2, RoundingMode.HALF_UP);
+        addToBillValue(entity.getBill(), val.negate());
+        billRepository.save(entity.getBill());
+
         entity.setActive(Active.DISABLE);
         creditCardBillRepository.save(entity);
     }
@@ -247,21 +304,31 @@ public class CreditCardBillService {
     public void activate(UUID id) {
         var entity = creditCardBillRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
-        // segurança: dono do cartão
+
         User me = securityService.obterUserLogin();
         boolean owner = entity.getCreditCard().getAccounts().getUser().getUuid().equals(me.getUuid());
         if (!owner && !isAdmin(me)) throw new AccessDeniedException("Sem permissão para reativar este lançamento.");
 
         if (entity.getActive() == Active.ACTIVE) return; // idempotente
-        adjustBills(entity, +1); // reaplica valores
+
+        assertActiveForPosting(entity.getCreditCard(), entity.getBill());
+        assertCategoryActive(entity.getCategory());
+
+        BigDecimal val = BigDecimal.valueOf(entity.getValue() == null ? 0.0 : entity.getValue())
+                .setScale(2, RoundingMode.HALF_UP);
+        addToBillValue(entity.getBill(), val);
+        billRepository.save(entity.getBill());
+
         entity.setActive(Active.ACTIVE);
         creditCardBillRepository.save(entity);
     }
 
-    // ===== helpers =====
+    // ================== HELPERS ==================
     private void addToBillValue(Bill bill, BigDecimal inc) {
         double current = bill.getValue() == null ? 0.0 : bill.getValue();
-        bill.setValue(BigDecimal.valueOf(current).add(inc).setScale(2, RoundingMode.HALF_UP).doubleValue());
+        bill.setValue(
+                BigDecimal.valueOf(current).add(inc).setScale(2, RoundingMode.HALF_UP).doubleValue()
+        );
     }
 
     private Bill findBillByMonthOrThrow(CreditCard card, YearMonth ym) {
@@ -269,36 +336,8 @@ public class CreditCardBillService {
                 .orElseThrow(() -> new EntityNotFoundException("Fatura do cartão " + card.getUuid() + " não encontrada para " + ym));
     }
 
-    /** sign=+1 aplica; sign=-1 estorna */
-    private void adjustBills(CreditCardBill ccb, int sign) {
-        billService.generateBillsUntilDec2025(ccb.getCreditCard()); // garante futuras
-
-        BigDecimal total = BigDecimal.valueOf(ccb.getValue() == null ? 0.0 : ccb.getValue())
-                .setScale(2, RoundingMode.HALF_UP);
-
-        boolean parcelado = "sim".equalsIgnoreCase(Objects.toString(ccb.getInstallments(), "").trim());
-        int n = parcelado ? Math.max(1, ccb.getNumberinstallments()) : 1;
-
-        YearMonth base = YearMonth.from(ccb.getBill().getCloseDate());
-        BigDecimal per = (n == 1) ? total : total.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP);
-        BigDecimal acc = BigDecimal.ZERO;
-
-        List<Bill> changed = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            YearMonth ym = base.plusMonths(i);
-            Bill b = billRepository.findFirstByCreditCardAndCloseDateBetween(
-                    ccb.getCreditCard(), ym.atDay(1), ym.atEndOfMonth()
-            ).orElseThrow(() -> new EntityNotFoundException("Fatura não encontrada para " + ym));
-
-            BigDecimal amt = (i < n - 1) ? per : total.subtract(acc).setScale(2, RoundingMode.HALF_UP);
-            acc = acc.add(amt);
-
-            double cur = b.getValue() == null ? 0.0 : b.getValue();
-            b.setValue(BigDecimal.valueOf(cur).add(amt.multiply(BigDecimal.valueOf(sign)))
-                    .setScale(2, RoundingMode.HALF_UP).doubleValue());
-            changed.add(b);
-        }
-        if (!changed.isEmpty()) billRepository.saveAll(changed);
+    private static String appendParcelaSuffix(String desc, int idx, int total) {
+        String base = (desc == null || desc.isBlank()) ? "Compra" : desc.trim();
+        return base + " (" + idx + "/" + total + ")";
     }
-
 }

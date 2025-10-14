@@ -8,6 +8,7 @@ import organizacao.finance.Guaxicash.entities.CreditCard;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.BillPay;
 import organizacao.finance.Guaxicash.repositories.BillRepository;
+import organizacao.finance.Guaxicash.service.EventGamification.GamificationEventPublisher;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
 import java.math.BigDecimal;
@@ -23,10 +24,10 @@ import java.util.UUID;
 public class BillService {
 
     @Autowired private BillRepository billRepository;
+    @Autowired private GamificationEventPublisher gamificationEventPublisher;
 
     private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
 
-    // ===== Listagens com filtro opcional
     public List<Bill> findByUserId(UUID userId) {
         return billRepository.findByCreditCardAccountsUserUuid(userId);
     }
@@ -140,6 +141,20 @@ public class BillService {
         BigDecimal newPaid = current.add(inc).setScale(2, RoundingMode.HALF_UP);
         bill.setValuepay(newPaid.doubleValue());
         if (newPaid.compareTo(total) == 0) bill.setStatus(BillPay.PAID);
+
+        if (newPaid.compareTo(total) == 0) {
+            bill.setStatus(BillPay.PAID);
+
+            // pago antes do vencimento? (agora <= due)
+            boolean beforeDue = LocalDate.now().isBefore(bill.getPayDate()) || LocalDate.now().isEqual(bill.getPayDate());
+            YearMonth cycle = YearMonth.from(bill.getCloseDate());
+            gamificationEventPublisher.billPaid(
+                    bill.getCreditCard().getAccounts().getUser().getUuid(),
+                    bill.getUuid(),
+                    cycle,
+                    beforeDue
+            );
+        }
 
         return billRepository.save(bill);
     }

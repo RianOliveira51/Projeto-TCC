@@ -27,4 +27,6 @@ public interface RecipheRepository extends JpaRepository<Reciphe, UUID> {
 
     // Para cascata por conta + status
     List<Reciphe> findByAccountsAndActive(Accounts accounts, Active active);
+
+    long countByAccounts_User_Uuid(UUID userId);
 }

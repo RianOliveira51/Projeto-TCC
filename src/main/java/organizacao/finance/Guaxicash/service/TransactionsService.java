@@ -12,6 +12,7 @@ import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.CategoryRepository;
 import organizacao.finance.Guaxicash.repositories.TransactionsRepository;
+import organizacao.finance.Guaxicash.service.EventGamification.GamificationEventPublisher;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
 import java.math.BigDecimal;
@@ -28,6 +29,7 @@ public class TransactionsService {
     @Autowired private AccountsRepository accountsRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private SecurityService securityService;
+    @Autowired private GamificationEventPublisher gamificationEventPublisher;
 
     private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
 
@@ -126,10 +128,19 @@ public class TransactionsService {
         accountsRepository.save(from);
         accountsRepository.save(to);
 
+        boolean toSavings =
+                tx.getForaccounts().getType() != null
+                        && tx.getForaccounts().getType().getDescription() != null
+                        && tx.getForaccounts().getType().getDescription().equalsIgnoreCase("Poupança");
+        gamificationEventPublisher.transferCreated(
+                tx.getAccounts().getUser().getUuid(),
+                tx.getUuid(),
+                tx.getValue().doubleValue(),
+                toSavings
+        );
         return transactionsRepository.save(tx);
     }
 
-    // ========= UPDATE =========
     @Transactional
     public Transactions update(UUID id, Transactions payload) {
         Transactions persisted = transactionsRepository.findById(id)

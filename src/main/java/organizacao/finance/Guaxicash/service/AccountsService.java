@@ -12,6 +12,7 @@ import organizacao.finance.Guaxicash.entities.*;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.repositories.*;
+import organizacao.finance.Guaxicash.service.EventGamification.GamificationEventPublisher;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
 import java.math.BigDecimal;
@@ -29,11 +30,11 @@ public class AccountsService {
     @Autowired private UserRepository userRepository;
     @Autowired private SecurityService securityService;
 
-    // Cartões/Bills (já existia)
+
     @Autowired private CreditCardRepository creditCardRepository;
     @Autowired private BillRepository billRepository;
 
-    // ==== NOVO: para a cascata de lançamentos ====
+
     @Autowired private ExpenseRepository expenseRepository;
     @Autowired private RecipheRepository recipheRepository;
     @Autowired private TransactionsRepository transactionsRepository;
@@ -41,7 +42,8 @@ public class AccountsService {
     @Autowired private ExpenseService expenseService;
     @Autowired private RecipheService recipheService;
     @Autowired private TransactionsService transactionsService;
-    // =============================================
+
+    @Autowired private GamificationEventPublisher gamificationEventPublisher;
 
     private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
 
@@ -103,6 +105,7 @@ public class AccountsService {
         }
         assertTypeActive(type);
         accounts.setActive(Active.ACTIVE);
+        gamificationEventPublisher.accountCreated(accounts.getUser().getUuid(), accounts.getUuid());
 
         return accountsRepository.save(accounts);
     }

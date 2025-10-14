@@ -1,10 +1,14 @@
 package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
+import organizacao.finance.Guaxicash.entities.Enums.Rank;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 
 import java.util.Collection;
@@ -24,12 +28,17 @@ public class User implements UserDetails {
     private String password;
     private UserRole role = UserRole.USER;
     private Active active = Active.ACTIVE;
+    @Column(name = "xp", nullable = false)   // <- adiciona isso
     private int XP;
-
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rank_name", nullable = false, length = 16)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @ColumnDefault("'FERRO'")
+    private Rank rank = Rank.FERRO;
     public User() {
     }
 
-    public User(UUID uuid, String name, String email, String phone, String password, UserRole role, Active active, int XP) {
+    public User(UUID uuid, String name, String email, String phone, String password, UserRole role, Active active, int XP, Rank rank) {
         this.uuid = uuid;
         this.name = name;
         this.email = email;
@@ -38,6 +47,7 @@ public class User implements UserDetails {
         this.role = UserRole.USER;
         this.active = active;
         this.XP = XP;
+        this.rank = rank;
     }
 
     public UUID getUuid() {
@@ -119,6 +129,15 @@ public class User implements UserDetails {
     public void setXP(int XP) {
         this.XP = XP;
     }
+
+    public Rank getRank() {
+        return rank;
+    }
+
+    public void setRank(Rank rank) {
+        this.rank = rank;
+    }
+
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

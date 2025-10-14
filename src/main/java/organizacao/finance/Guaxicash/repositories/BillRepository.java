@@ -1,5 +1,6 @@
 package organizacao.finance.Guaxicash.repositories;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -69,4 +70,12 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
     int markBillsOpenForToday(@Param("today") LocalDate today,
                               @Param("openStatus") BillPay openStatus,
                               @Param("futureStatus") BillPay futureStatus);
+
+    @Query("""
+   select b from Bill b
+    where b.creditCard.accounts.user.uuid = :userId
+      and b.status = organizacao.finance.Guaxicash.entities.Enums.BillPay.PAID
+    order by b.closeDate desc
+""")
+    List<Bill> findLastPaidBills(@Param("userId") UUID userId, Pageable pageable);
 }

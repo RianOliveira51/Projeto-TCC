@@ -2,6 +2,8 @@ package organizacao.finance.Guaxicash.repositories;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Expenses;
@@ -30,4 +32,14 @@ public interface ExpenseRepository extends JpaRepository<Expenses, UUID> {
             UUID userId, Active active, LocalDate from, LocalDate to, Sort sort
     );
     List<Expenses> findByAccountsAndActive(Accounts accounts, Active active);
+
+    long countByAccounts_User_Uuid(UUID userId);
+
+    // despesas em um dia específico (para missão 4)
+    @Query("""
+   select coalesce(count(e),0) from Expenses e
+    where e.accounts.user.uuid = :userId
+      and e.dateRegistration = :day
+""")
+    int countInDay(@Param("userId") UUID userId, @Param("day") LocalDate day);
 }

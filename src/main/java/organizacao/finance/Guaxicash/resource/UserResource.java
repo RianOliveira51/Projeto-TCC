@@ -11,6 +11,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.Config.TokenService;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
+import organizacao.finance.Guaxicash.entities.Enums.Rank;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.entities.dto.*;
@@ -61,7 +62,7 @@ public class UserResource {
                     .body(new HttpResponseDTO("Email Já cadastrado"));
         }
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER, Active.ACTIVE, 0);
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, UserRole.USER, Active.ACTIVE, 0, Rank.FERRO);
         newUser.setRole(UserRole.USER);
         userRepository.save(newUser);
         return ResponseEntity.ok(new HttpResponseDTO("Usuário registrado com sucesso."));
@@ -75,7 +76,7 @@ public class UserResource {
         }
         var role = (data.role() == null) ? UserRole.USER : data.role();
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, role, Active.ACTIVE, 0);
+        User newUser = new User(null, data.name(), data.email(), data.phone(), encryptedPassword, role, Active.ACTIVE, 0, Rank.FERRO);
         newUser.setRole(role);
         userRepository.save(newUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(new HttpResponseDTO("Usuário criado pelo admin com perfil " + role));
