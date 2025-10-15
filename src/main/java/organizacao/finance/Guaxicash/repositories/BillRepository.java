@@ -78,4 +78,15 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
     order by b.closeDate desc
 """)
     List<Bill> findLastPaidBills(@Param("userId") UUID userId, Pageable pageable);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+   update Bill b
+      set b.status = :paid
+    where (b.value is null or b.value = 0)
+      and b.status <> :paid
+""")
+    int markZeroValuedAsPaid(@Param("paid") BillPay paid);
+
+    Optional<Bill> findByCreditCardAndCloseDate(CreditCard creditCard, LocalDate closeDate);
 }

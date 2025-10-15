@@ -53,6 +53,14 @@ public class RecipheService {
                 : recipheRepository.findByAccounts_UserAndActive(me, active);
     }
 
+    public Double totalForCurrentUser(Active active) {
+        User me = securityService.obterUserLogin();
+        Double total = (active == null)
+                ? recipheRepository.sumValueByUserId(me.getUuid())
+                : recipheRepository.sumValueByUserIdAndActive(me.getUuid(), active);
+        return total == null ? 0.0 : total;
+    }
+
     public Reciphe findById(UUID id) {
         Reciphe r = recipheRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));

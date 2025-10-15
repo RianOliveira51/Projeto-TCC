@@ -49,16 +49,49 @@ public class BillService {
         return billRepository.save(bill);
     }
 
+    /**
+     * Helper idempotente: pega a fatura do mês (cartão + closeDate do mês),
+     * ou cria se não existir.
+     */
+    @Transactional
+    public Bill getOrCreateBillForMonth(CreditCard card, YearMonth ym) {
+        LocalDate close = atSafeDay(ym, card.getCloseDate().getDayOfMonth());
+        return billRepository.findByCreditCardAndCloseDate(card, close)
+                .orElseGet(() -> {
+                    // calcula open e pay
+                    LocalDate prevClosing = atSafeDay(ym.minusMonths(1), card.getCloseDate().getDayOfMonth());
+                    LocalDate open = prevClosing.plusDays(1);
+                    int dueDay = card.getExpiryDate().getDayOfMonth();
+                    LocalDate due = (dueDay > close.getDayOfMonth())
+                            ? atSafeDay(ym, dueDay)
+                            : atSafeDay(ym.plusMonths(1), dueDay);
+
+                    LocalDate today = LocalDate.now();
+                    Bill b = new Bill();
+                    b.setCreditCard(card);
+                    b.setOpenDate(open);
+                    b.setCloseDate(close);
+                    b.setPayDate(due);
+                    b.setStatus((!today.isBefore(open) && !today.isAfter(close))
+                            ? BillPay.OPEN
+                            : BillPay.FUTURE_BILLS);
+                    b.setValue(0.0);
+                    b.setValuepay(0.0);
+                    b.setActive(Active.ACTIVE);
+                    return billRepository.save(b);
+                });
+    }
+
     @Transactional
     public void generateBillsUntilDec2025(CreditCard card) {
         LocalDate today = LocalDate.now();
         YearMonth startYm = YearMonth.from(today);
         YearMonth endYm   = YearMonth.of(2025, 12);
 
+        List<Bill> toSave = new ArrayList<>();
+
         int closeDay = card.getCloseDate().getDayOfMonth();
         int dueDay   = card.getExpiryDate().getDayOfMonth();
-
-        List<Bill> toSave = new ArrayList<>();
 
         for (YearMonth ym = startYm; !ym.isAfter(endYm); ym = ym.plusMonths(1)) {
             LocalDate closing = atSafeDay(ym, closeDay);
@@ -89,7 +122,7 @@ public class BillService {
         if (!toSave.isEmpty()) billRepository.saveAll(toSave);
     }
 
-    private static LocalDate atSafeDay(YearMonth ym, int day) {
+    static LocalDate atSafeDay(YearMonth ym, int day) {
         int safe = Math.min(day, ym.lengthOfMonth());
         return ym.atDay(safe);
     }
@@ -145,7 +178,6 @@ public class BillService {
         if (newPaid.compareTo(total) == 0) {
             bill.setStatus(BillPay.PAID);
 
-            // pago antes do vencimento? (agora <= due)
             boolean beforeDue = LocalDate.now().isBefore(bill.getPayDate()) || LocalDate.now().isEqual(bill.getPayDate());
             YearMonth cycle = YearMonth.from(bill.getCloseDate());
             gamificationEventPublisher.billPaid(
@@ -157,13 +189,6 @@ public class BillService {
         }
 
         return billRepository.save(bill);
-    }
-
-    // ===== Trava de alteração quando fechado
-    private void assertNotClosed(Bill bill) {
-        if (bill.getStatus() == BillPay.CLOSE_PENDING) {
-            throw new IllegalStateException("Fatura fechada (CLOSE) não pode alterar o valor.");
-        }
     }
 
     @Transactional
@@ -187,7 +212,12 @@ public class BillService {
         return billRepository.save(bill);
     }
 
-    // ===== Soft delete local (sem cascata extra aqui)
+    private void assertNotClosed(Bill bill) {
+        if (bill.getStatus() == BillPay.CLOSE_PENDING) {
+            throw new IllegalStateException("Fatura fechada (CLOSE) não pode alterar o valor.");
+        }
+    }
+
     @Transactional
     public void deactivate(UUID id) {
         Bill b = billRepository.findById(id)

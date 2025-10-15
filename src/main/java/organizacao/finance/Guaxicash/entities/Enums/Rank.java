@@ -3,9 +3,9 @@ package organizacao.finance.Guaxicash.entities.Enums;
 public enum Rank {
     FERRO(0),
     BRONZE(500),
-    OURO(1000),
-    PLATINA(2000),
-    DIAMANTE(3500);
+    OURO(2000),
+    PLATINA(3500),
+    DIAMANTE(5000);
 
     private final int minXp;
     Rank(int minXp) { this.minXp = minXp; }

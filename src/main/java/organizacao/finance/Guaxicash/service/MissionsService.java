@@ -4,7 +4,10 @@ import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import organizacao.finance.Guaxicash.Config.SecurityService;
+import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.entities.Missions;
+import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.MissionsRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
@@ -15,15 +18,31 @@ import java.util.UUID;
 public class MissionsService {
 
     private final MissionsRepository missionsRepository;
-    public MissionsService(MissionsRepository missionsRepository) {
+    private SecurityService securityService;
+
+    public MissionsService(MissionsRepository missionsRepository,
+                           SecurityService securityService) {
         this.missionsRepository = missionsRepository;
+        this.securityService = securityService;
     }
 
-    // padrão, sem paginação
+    private boolean isAdmin(User u){ return u.getRole() == UserRole.ADMIN; }
+
+    /** Admin vê tudo; usuário vê apenas o que ainda não concluiu. */
+    public List<Missions> listForCurrentUser() {
+        User me = securityService.obterUserLogin();
+        if (isAdmin(me)) return missionsRepository.findAll();
+        return missionsRepository.findAllNotCompletedByUser(me.getUuid());
+    }
+
+    /** Útil para endpoints que precisem explicitamente “todas”. */
     public List<Missions> listAll() {
         return missionsRepository.findAll();
-        // se quiser já ordenado por título:
-        // return missionsRepository.findAll(Sort.by("title").ascending());
+    }
+
+    /** Caso precise listar disponíveis para um usuário específico (admin). */
+    public List<Missions> listAvailableFor(UUID userId) {
+        return missionsRepository.findAllNotCompletedByUser(userId);
     }
 
     public Missions get(UUID id) {

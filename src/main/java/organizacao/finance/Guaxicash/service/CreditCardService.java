@@ -9,11 +9,14 @@ import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.Config.SecurityService;
 import organizacao.finance.Guaxicash.entities.*;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
+import organizacao.finance.Guaxicash.entities.Enums.BillPay;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.repositories.*;
 import organizacao.finance.Guaxicash.service.eventos.CreditCardForBill.CreditCardCreatedEvent;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.UUID;
 
@@ -98,11 +101,31 @@ public class CreditCardService {
         CreditCard persisted = creditCardRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Cartão não encontrado"));
 
+        // ---- BLOQUEIO de redução de limite abaixo do valor já utilizado (soma de saldos em faturas NÃO pagas)
+        if (payload.getLimite() != null) {
+            double novoLimite = payload.getLimite();
+            // soma(value - valuepay) de todas as faturas do cartão com status != PAID
+            double emAberto = billRepository.findByCreditCard(persisted).stream()
+                    .filter(b -> b.getStatus() != BillPay.PAID)
+                    .map(b -> {
+                        double total = b.getValue() == null ? 0.0 : b.getValue();
+                        double pago  = b.getValuepay() == null ? 0.0 : b.getValuepay();
+                        return BigDecimal.valueOf(total - pago).setScale(2, RoundingMode.HALF_UP);
+                    })
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .doubleValue();
+
+            if (novoLimite < emAberto) {
+                throw new IllegalStateException(
+                        "Não é permitido reduzir o limite abaixo do valor já utilizado em faturas (" + String.format(java.util.Locale.US, "%.2f", emAberto) + ")."
+                );
+            }
+            persisted.setLimite(novoLimite);
+        }
+
         boolean closeChanged  = payload.getCloseDate()  != null && !payload.getCloseDate().equals(persisted.getCloseDate());
         boolean expiryChanged = payload.getExpiryDate() != null && !payload.getExpiryDate().equals(persisted.getExpiryDate());
-        boolean bothDatesChanged = closeChanged && expiryChanged;
 
-        if (payload.getLimite() != null)      persisted.setLimite(payload.getLimite());
         if (payload.getDescription() != null) persisted.setDescription(payload.getDescription());
         if (payload.getFlags() != null)       persisted.setFlags(payload.getFlags());
         if (payload.getAccounts() != null)    persisted.setAccounts(payload.getAccounts());
@@ -110,7 +133,11 @@ public class CreditCardService {
         if (payload.getExpiryDate() != null)  persisted.setExpiryDate(payload.getExpiryDate());
 
         CreditCard saved = creditCardRepository.save(persisted);
-        if (bothDatesChanged) billService.rescheduleFutureBills(saved);
+
+        // ---- REAGENDAR faturas futuras quando QUALQUER uma das datas mudar
+        if (closeChanged || expiryChanged) {
+            billService.rescheduleFutureBills(saved);
+        }
         return saved;
     }
 

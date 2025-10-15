@@ -26,7 +26,14 @@ public class MissionsResource {
     }
 
     @GetMapping
-    public ResponseEntity<List<Missions>> list() {
+    public ResponseEntity<List<Missions>> listForCurrentUser() {
+        var list = missionsService.listForCurrentUser();
+        return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Missions>> listAll() {
         return ResponseEntity.ok(missionsService.listAll());
     }
 

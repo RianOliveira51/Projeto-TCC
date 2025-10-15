@@ -30,19 +30,25 @@ public class BillCloseScheduler {
 
     @Transactional
     @Scheduled(cron = "0 0 0 * * *", zone = "America/Sao_Paulo")
+    //por segundo
     //@Scheduled(cron = "* * * * * *", zone = "America/Sao_Paulo")
     public void closeBillsWhoseCloseDateArrived() {
         LocalDate today = LocalDate.now(ZONE);
 
-        // 1) Fechar: OPEN/FUTURE_BILLS com closeDate <= hoje → CLOSE
+        // 1) Fechar: OPEN/FUTURE_BILLS com closeDate <= hoje → CLOSE_PENDING
         List<BillPay> eligible = Arrays.asList(BillPay.OPEN, BillPay.FUTURE_BILLS);
         int closed = billRepository.markBillsClosed(today, BillPay.CLOSE_PENDING, eligible);
 
         // 2) Abrir: FUTURE_BILLS cujo período inclui hoje → OPEN
         int opened = billRepository.markBillsOpenForToday(today, BillPay.OPEN, BillPay.FUTURE_BILLS);
 
-        if (closed > 0 || opened > 0) {
-            logger.info("Scheduler Bills: {} fechadas, {} abertas em {}.", closed, opened, today);
+        // 3) Marcar como PAID faturas com total 0
+        int zeroToPaid = billRepository.markZeroValuedAsPaid(BillPay.PAID);
+
+        // int normalized = billRepository.normalizePaidAmountWhenZeroTotal();
+        if (closed > 0 || opened > 0 || zeroToPaid > 0) {
+            logger.info("Scheduler Bills: {} fechadas, {} abertas, {} marcadas como PAID (value=0) em {}.",
+                    closed, opened, zeroToPaid, today);
         }
     }
 }

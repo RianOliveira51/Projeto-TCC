@@ -8,7 +8,10 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
-@Table(name = "Bill")
+@Table(
+        name = "Bill",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"credit_card_uuid","close_date"})
+)
 public class Bill {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

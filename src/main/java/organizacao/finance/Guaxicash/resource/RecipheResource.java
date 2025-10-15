@@ -16,6 +16,7 @@ import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Validated
@@ -37,6 +38,15 @@ public class RecipheResource {
     public ResponseEntity<Reciphe> findById(
             @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
         return ResponseEntity.ok(recipheService.findById(UUID.fromString(id)));
+    }
+
+    @GetMapping("/total")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Double>> total(
+            @RequestParam(required = false) Active active
+    ) {
+        double total = recipheService.totalForCurrentUser(active);
+        return ResponseEntity.ok(Map.of("total", total));
     }
 
     @GetMapping("/search")
