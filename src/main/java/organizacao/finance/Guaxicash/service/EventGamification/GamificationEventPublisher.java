@@ -17,8 +17,9 @@ public class GamificationEventPublisher {
         this.publisher = publisher;
     }
 
-    public void accountCreated(UUID userId, UUID accountId) {
-        publisher.publishEvent(new AccountCreatedEvent(userId, accountId));
+    // Agora recebe o flag isSavings e repassa para o evento
+    public void accountCreated(UUID userId, UUID accountId, boolean isSavings) {
+        publisher.publishEvent(new AccountCreatedEvent(userId, accountId, isSavings));
     }
 
     public void expenseCreated(UUID userId, UUID expenseId, LocalDate date) {

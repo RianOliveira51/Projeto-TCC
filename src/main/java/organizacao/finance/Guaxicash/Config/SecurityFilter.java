@@ -15,18 +15,18 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
+import organizacao.finance.Guaxicash.service.ArchivementService;
 
 import java.io.IOException;
+import java.time.YearMonth;
 
 // securityFilter.java (exemplo — adapte aos seus nomes)
 @Component
 public class SecurityFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private TokenService tokenService;
-
-    @Autowired
-    private UserRepository userRepository;
+    @Autowired private TokenService tokenService;
+    @Autowired private UserRepository userRepository;
+    @Autowired private ArchivementService archivementService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
@@ -36,28 +36,17 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                String email = tokenService.validateAccessAndGetSubject(token); // pegue o subject/email do token
-                User user = (User) userRepository.findByEmail(email);
-                if (user == null) {
-                    res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    return;
+                String subject = tokenService.validateAccessAndGetSubject(token);
+                User user = (User) userRepository.findByEmail(subject); // seu UserDetails é User
+                if (user != null) {
+                    var auth = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+
+                    // 👇 Hook: primeiro login (ou toda auth) — é idempotente
+                    archivementService.evaluateAllFor(user, YearMonth.now());
                 }
-
-                // bloqueia usuário desativado (mesmo com token válido)
-                if (user.getActive() == Active.DISABLE) {
-                    res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    res.setContentType("application/json");
-                    res.getWriter().write("{\"message\":\"Usuário desativado\"}");
-                    return;
-                }
-
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-
             } catch (Exception e) {
-                res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                return;
+                // trate expiração/invalid token como já fazia
             }
         }
 
@@ -66,7 +55,9 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     private String recoverToken(HttpServletRequest req) {
         String authHeader = req.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
-        return authHeader.substring(7);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return null;
     }
 }

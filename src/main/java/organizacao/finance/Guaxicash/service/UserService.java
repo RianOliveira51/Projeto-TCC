@@ -6,6 +6,7 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.*;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
@@ -23,6 +24,7 @@ public class UserService implements UserDetailsService {
 
     @Autowired private UserRepository userRepository;
     @Autowired private AccountsRepository accountsRepository;
+    @Autowired private PurgeService purgeService;
 
     // ===== LISTAR =====
     public List<User> findall() { return userRepository.findAll(); }
@@ -40,6 +42,7 @@ public class UserService implements UserDetailsService {
 
     public User insert(User user){
         if (user.getActive() == null) user.setActive(Active.ACTIVE);
+
         return userRepository.save(user);
     }
 
@@ -84,24 +87,16 @@ public class UserService implements UserDetailsService {
     }
 
     public void delete(UUID id) {
-        User targetUser = userRepository.findById(id)
+        var targetUser = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
 
-        if (!accountsRepository.findByUser(targetUser).isEmpty()) {
-            throw new IllegalStateException("Usuário possui contas associadas e não pode ser excluído.");
-        }
-
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User authUser = (User) auth.getPrincipal();
-
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        var authUser = (User) auth.getPrincipal();
         boolean isAdmin = authUser.getRole().equals(UserRole.ADMIN);
-        boolean isOwner = authUser.getUuid().equals(targetUser.getUuid());
+        if (!isAdmin) throw new SecurityException("Apenas administradores podem excluir usuários definitivamente.");
 
-        if (!isAdmin && !isOwner) {
-            throw new SecurityException("Você não tem permissão para deletar este usuário.");
-        }
-
-        userRepository.delete(targetUser);
+        // não bloqueie por ter contas; vamos apagar tudo
+        purgeService.purgeUserData(targetUser.getUuid());
     }
 
     public void softDelete(UUID id) {

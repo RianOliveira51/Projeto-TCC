@@ -1,6 +1,8 @@
 package organizacao.finance.Guaxicash.repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.CreditCard;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
@@ -22,4 +24,8 @@ public interface CreditCardRepository extends JpaRepository<CreditCard, UUID> {
     // filtros por active
     List<CreditCard> findAllByAccounts_UserAndActive(User user, Active active);
     List<CreditCard> findByAccountsAndActive(Accounts accounts, Active active);
+
+    @Modifying
+    @Transactional
+    void deleteByAccounts_User_Uuid(UUID userId);
 }

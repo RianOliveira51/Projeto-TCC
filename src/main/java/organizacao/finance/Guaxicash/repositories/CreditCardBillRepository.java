@@ -2,6 +2,9 @@ package organizacao.finance.Guaxicash.repositories;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.entities.CreditCardBill;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.User;
@@ -43,4 +46,16 @@ public interface CreditCardBillRepository extends JpaRepository<CreditCardBill, 
 
     List<CreditCardBill> findByBill_UuidAndCreditCard_Accounts_User_UuidAndActive(
             UUID billId, UUID userId, Active active, Sort sort);
+
+    @Query("""
+        select count(c)
+          from CreditCardBill c
+         where c.creditCard.accounts.user.uuid = :userId
+           and c.registrationDate between :start and :end
+    """)
+    long countByUserBetween(UUID userId, LocalDate start, LocalDate end);
+
+    @Modifying
+    @Transactional
+    void deleteByCreditCard_Accounts_User_Uuid(UUID userId);
 }

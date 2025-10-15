@@ -100,14 +100,30 @@ public class AccountsService {
         accounts.setType(type);
         if (accounts.getActive() == null) accounts.setActive(Active.ACTIVE);
 
-        if (accounts.getActive() != null && accounts.getActive() == Active.DISABLE) {
+        if (accounts.getActive() == Active.DISABLE) {
             throw new IllegalArgumentException("Não é possível criar conta já desativada.");
         }
         assertTypeActive(type);
         accounts.setActive(Active.ACTIVE);
-        gamificationEventPublisher.accountCreated(accounts.getUser().getUuid(), accounts.getUuid());
 
-        return accountsRepository.save(accounts);
+        // 1) salva primeiro para ter o UUID
+        Accounts saved = accountsRepository.save(accounts);
+
+        // 2) calcula se é poupança
+        boolean isSavings = isSavings(type);
+
+        // 3) publica o evento com 3 argumentos (userId, accountId, isSavings)
+        gamificationEventPublisher.accountCreated(saved.getUser().getUuid(), saved.getUuid(), isSavings);
+
+        return saved;
+    }
+
+    /** Heurística simples: considera "poupança" se o nome/descrição remete a isso */
+    private boolean isSavings(Type type) {
+        String desc = type.getDescription();
+        if (desc == null) return false;
+        String d = desc.trim().toLowerCase();
+        return d.contains("poupan"); // cobre "poupança"/"poupanca"
     }
 
     public Accounts update(UUID id, Accounts updatedAccount) {

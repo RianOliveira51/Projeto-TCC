@@ -29,6 +29,7 @@ public class CreditCardService {
     @Autowired private ApplicationEventPublisher publisher;
     @Autowired private BillRepository billRepository;
     @Autowired private BillService billService;
+    @Autowired private ArchivementService archivementService;
 
     private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
 
@@ -88,7 +89,8 @@ public class CreditCardService {
         }
         card.setActive(Active.ACTIVE);
         CreditCard saved = creditCardRepository.save(card);
-        publisher.publishEvent(new CreditCardCreatedEvent(this, saved.getUuid())); // gera/ajusta faturas
+        publisher.publishEvent(new CreditCardCreatedEvent(this, saved.getUuid()));
+        archivementService.onCreditCardCreated(me);
         return saved;
     }
 
@@ -101,7 +103,7 @@ public class CreditCardService {
         CreditCard persisted = creditCardRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Cartão não encontrado"));
 
-        // ---- BLOQUEIO de redução de limite abaixo do valor já utilizado (soma de saldos em faturas NÃO pagas)
+        // ---- BLOQUEIO de redução de limite abaixo do valor
         if (payload.getLimite() != null) {
             double novoLimite = payload.getLimite();
             // soma(value - valuepay) de todas as faturas do cartão com status != PAID
@@ -169,12 +171,16 @@ public class CreditCardService {
         boolean owner = card.getAccounts() != null &&
                 card.getAccounts().getUser() != null &&
                 card.getAccounts().getUser().getUuid().equals(me.getUuid());
-
         if (!owner && !isAdmin(me)) throw new AccessDeniedException("Sem permissão para alterar este cartão.");
+        
+        if (target == Active.ACTIVE && card.getAccounts().getActive() != Active.ACTIVE) {
+            throw new IllegalStateException("Conta desativada. Ative a conta antes de ativar o cartão.");
+        }
 
         card.setActive(target);
         creditCardRepository.save(card);
 
+        // Cascateia o mesmo status para as faturas
         List<Bill> bills = billRepository.findByCreditCard(card);
         for (Bill b : bills) b.setActive(target);
         billRepository.saveAll(bills);

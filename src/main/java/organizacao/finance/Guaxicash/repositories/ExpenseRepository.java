@@ -2,8 +2,10 @@ package organizacao.finance.Guaxicash.repositories;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Expenses;
@@ -42,4 +44,18 @@ public interface ExpenseRepository extends JpaRepository<Expenses, UUID> {
       and e.dateRegistration = :day
 """)
     int countInDay(@Param("userId") UUID userId, @Param("day") LocalDate day);
+
+    @Query("""
+        select count(e)
+          from Expenses e
+         where e.accounts.user.uuid = :userId
+           and e.dateRegistration between :start and :end
+    """)
+    long countBetween(UUID userId, LocalDate start, LocalDate end);
+
+    // ExpenseRepository.java
+    @Modifying
+    @Transactional
+    void deleteByAccounts_User_Uuid(UUID userId);
+
 }

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.entities.Bill;
 import organizacao.finance.Guaxicash.entities.CreditCard;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
@@ -89,4 +90,7 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
     int markZeroValuedAsPaid(@Param("paid") BillPay paid);
 
     Optional<Bill> findByCreditCardAndCloseDate(CreditCard creditCard, LocalDate closeDate);
+
+    @Modifying @Transactional
+    void deleteByCreditCard_Accounts_User_Uuid(UUID userId);
 }

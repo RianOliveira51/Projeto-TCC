@@ -2,6 +2,8 @@ package organizacao.finance.Guaxicash.repositories;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Transactions;
@@ -31,5 +33,9 @@ public interface TransactionsRepository extends JpaRepository<Transactions, UUID
 
     // Transações em que a conta é DESTINO (campo 'foraccounts' na entidade)
     List<Transactions> findByForaccountsAndActive(Accounts foraccounts, Active active);
+
+    @Modifying
+    @Transactional
+    void deleteByAccounts_User_UuidOrForaccounts_User_Uuid(UUID userId1, UUID userId2);
 
 }

@@ -2,7 +2,9 @@ package organizacao.finance.Guaxicash.repositories;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.entities.Accounts;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Reciphe;
@@ -46,4 +48,26 @@ public interface RecipheRepository extends JpaRepository<Reciphe, UUID> {
               and r.active = :active
            """)
     Double sumValueByUserIdAndActive(UUID userId, Active active);
+
+
+    @Query("""
+        select count(r)
+          from Reciphe r
+         where r.accounts.user.uuid = :userId
+           and r.dateRegistration = :day
+    """)
+    long countInDay(UUID userId, LocalDate day);
+
+    @Query("""
+        select count(r)
+          from Reciphe r
+         where r.accounts.user.uuid = :userId
+           and r.dateRegistration between :start and :end
+    """)
+    long countBetween(UUID userId, LocalDate start, LocalDate end);
+
+    @Modifying
+    @Transactional
+    void deleteByAccounts_User_Uuid(UUID userId);
+
 }
