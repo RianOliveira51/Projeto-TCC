@@ -172,7 +172,7 @@ public class CreditCardService {
                 card.getAccounts().getUser() != null &&
                 card.getAccounts().getUser().getUuid().equals(me.getUuid());
         if (!owner && !isAdmin(me)) throw new AccessDeniedException("Sem permissão para alterar este cartão.");
-        
+
         if (target == Active.ACTIVE && card.getAccounts().getActive() != Active.ACTIVE) {
             throw new IllegalStateException("Conta desativada. Ative a conta antes de ativar o cartão.");
         }

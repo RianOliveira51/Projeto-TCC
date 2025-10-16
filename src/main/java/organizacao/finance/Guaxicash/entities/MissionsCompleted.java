@@ -2,6 +2,7 @@ package organizacao.finance.Guaxicash.entities;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -17,15 +18,17 @@ public class MissionsCompleted {
     @ManyToOne
     @JoinColumn(name = "missions_id")
     private Missions missions;
-
+    @Column(nullable = false)
+    private LocalDate completedAt = LocalDate.now();
     public MissionsCompleted() {
 
     }
 
-    public MissionsCompleted(UUID uuid, User user, Missions missions) {
+    public MissionsCompleted(UUID uuid, User user, Missions missions, LocalDate completedAt) {
         this.uuid = uuid;
         this.user = user;
         this.missions = missions;
+        this.completedAt = completedAt;
     }
 
     public UUID getUuid() {
@@ -50,5 +53,13 @@ public class MissionsCompleted {
 
     public void setMissions(Missions missions) {
         this.missions = missions;
+    }
+
+    public LocalDate getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(LocalDate completedAt) {
+        this.completedAt = completedAt;
     }
 }

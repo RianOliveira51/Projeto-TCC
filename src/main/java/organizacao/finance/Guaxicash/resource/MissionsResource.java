@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import organizacao.finance.Guaxicash.entities.Missions;
+import organizacao.finance.Guaxicash.entities.dto.MissionResponse;
 import organizacao.finance.Guaxicash.repositories.MissionsRepository;
 import organizacao.finance.Guaxicash.service.MissionsService;
 
@@ -25,10 +26,11 @@ public class MissionsResource {
         this.missionsService = missionsService;
     }
 
+    // Agora retorna TODAS com status do usuário logado
     @GetMapping
-    public ResponseEntity<List<Missions>> listForCurrentUser() {
-        var list = missionsService.listForCurrentUser();
-        return ResponseEntity.ok(list);
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<MissionResponse>> listAllWithStatus() {
+        return ResponseEntity.ok(missionsService.listAllWithUserStatus());
     }
 
     @GetMapping("/all")

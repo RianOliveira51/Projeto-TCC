@@ -1,28 +1,39 @@
 package organizacao.finance.Guaxicash.service;
 
 import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import organizacao.finance.Guaxicash.Config.SecurityService;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.entities.Missions;
+import organizacao.finance.Guaxicash.entities.MissionsCompleted;
 import organizacao.finance.Guaxicash.entities.User;
+import organizacao.finance.Guaxicash.entities.dto.MissionResponse;
+import organizacao.finance.Guaxicash.repositories.MissionsCompletedRepository;
 import organizacao.finance.Guaxicash.repositories.MissionsRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class MissionsService {
 
     private final MissionsRepository missionsRepository;
+    @Autowired
+    private MissionsCompletedRepository missionsCompletedRepository;
     private SecurityService securityService;
 
     public MissionsService(MissionsRepository missionsRepository,
+                           MissionsCompletedRepository missionsCompletedRepository,
                            SecurityService securityService) {
         this.missionsRepository = missionsRepository;
+        this.missionsCompletedRepository = missionsCompletedRepository;
         this.securityService = securityService;
     }
 
@@ -43,11 +54,6 @@ public class MissionsService {
     /** Caso precise listar disponíveis para um usuário específico (admin). */
     public List<Missions> listAvailableFor(UUID userId) {
         return missionsRepository.findAllNotCompletedByUser(userId);
-    }
-
-    public Missions get(UUID id) {
-        return missionsRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundExeption("Missão não encontrada"));
     }
 
     @Transactional
@@ -74,5 +80,32 @@ public class MissionsService {
             throw new ResourceNotFoundExeption("Missão não encontrada");
         }
         missionsRepository.deleteById(id);
+    }
+    public List<MissionResponse> listAllWithUserStatus() {
+        User me = securityService.obterUserLogin();
+
+        Map<UUID, LocalDate> completedMap = missionsCompletedRepository.findByUser_Uuid(me.getUuid())
+                .stream()
+                .collect(Collectors.toMap(
+                        mc -> mc.getMissions().getUuid(),
+                        MissionsCompleted::getCompletedAt
+                ));
+
+        return missionsRepository.findAll()
+                .stream()
+                .map(m -> new MissionResponse(
+                        m.getUuid(),
+                        m.getTitle(),
+                        m.getDescription(),
+                        m.getValue(),
+                        completedMap.containsKey(m.getUuid()),
+                        completedMap.get(m.getUuid()) // null se não concluída
+                ))
+                .toList();
+    }
+
+    public Missions get(UUID id) {
+        return missionsRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundExeption("Missão não encontrada"));
     }
 }
