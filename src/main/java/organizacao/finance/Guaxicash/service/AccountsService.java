@@ -45,6 +45,8 @@ public class AccountsService {
 
     @Autowired private GamificationEventPublisher gamificationEventPublisher;
 
+    @Autowired private ArchivementService archivementService;
+
     private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
 
     private void assertActive(Accounts acc) {
@@ -114,6 +116,7 @@ public class AccountsService {
 
         // 3) publica o evento com 3 argumentos (userId, accountId, isSavings)
         gamificationEventPublisher.accountCreated(saved.getUser().getUuid(), saved.getUuid(), isSavings);
+        archivementService.onAccountCreated(saved.getUser());
 
         return saved;
     }

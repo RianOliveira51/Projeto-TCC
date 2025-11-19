@@ -4,15 +4,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import organizacao.finance.Guaxicash.Config.SecurityService;
-import organizacao.finance.Guaxicash.entities.Archivement;
-import organizacao.finance.Guaxicash.entities.ArchivementCompleted;
-import organizacao.finance.Guaxicash.entities.User;
+import organizacao.finance.Guaxicash.entities.*;
+import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.dto.ArchivementResponse;
 import organizacao.finance.Guaxicash.entities.dto.CompleteArchivementResponse;
+import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.ArchivementCompletedRepository;
 import organizacao.finance.Guaxicash.repositories.ArchivementRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -28,10 +29,12 @@ public class ArchivementService {
     private ArchivementCompletedRepository completedRepository;
     @Autowired
     private SecurityService securityService;
+    @Autowired
+    private AccountsRepository accountsRepository;
 
     private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
 
-    /** UUIDs fixos das 10 conquistas existentes no banco (do seu JSON) */
+    /** UUIDs fixos das 10 conquistas existentes no banco*/
     private static final class Refs {
         static final UUID ONE_ACCOUNT_MONTH   = UUID.fromString("117af391-5653-4f7a-bd53-003487f338f7");
         static final UUID ADD_CREDIT_CARD     = UUID.fromString("2046c62f-a733-4428-992d-fec710593815");
@@ -125,11 +128,37 @@ public class ArchivementService {
     public void onUserCreated(User newUser) {
         mark(newUser, Refs.CREATE_USER); // idempotente
     }
+    @Transactional
+    public void onIncomeCreated(Accounts acc) {
+        // só nos importamos com contas POUPANÇA
+        if (!isSavings(acc.getType())) {
+            return;
+        }
+
+        Double bal = acc.getBalance();
+        if (bal == null) bal = 0.0;
+
+        BigDecimal balance = BigDecimal
+                .valueOf(bal)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        if (balance.compareTo(new BigDecimal("10000")) >= 0) {
+            mark(acc.getUser(), Refs.RESERVE_10K);
+        }
+    }
 
     // ========= ENGINE de regras =========
     @Transactional
     public void evaluateAllForMe(YearMonth ref) {
         evaluateAllFor(securityService.obterUserLogin(), ref);
+    }
+
+    @Transactional
+    public void onAccountCreated(User user) {
+        int distinctBanks = countDistinctBanks(user);
+        if (distinctBanks >= 3) {
+            mark(user, Refs.THREE_BANKS);
+        }
     }
 
     @Transactional
@@ -191,6 +220,14 @@ public class ArchivementService {
             mark(u, Refs.ALL_MISSIONS_DONE);
     }
 
+    private boolean isSavings(Type type) {
+        if (type == null) return false;
+        String desc = type.getDescription();
+        if (desc == null) return false;
+        String d = desc.trim().toLowerCase();
+        return d.contains("poupan"); // cobre "poupança" / "poupanca"
+    }
+
     private boolean isFourGreenMonths(User u, YearMonth endInclusive) {
         YearMonth m = endInclusive;
         for (int i = 0; i < 4; i++) {
@@ -248,8 +285,7 @@ public class ArchivementService {
     }
 
     private int countDistinctBanks(User u) {
-        // TOD: retornar quantidade de bancos distintos das contas do usuário
-        return 0;
+        return accountsRepository.countDistinctBanksByUser(u.getUuid());
     }
 
     private boolean spentUsingSingleAccount(User u, YearMonth ym) {
@@ -258,9 +294,29 @@ public class ArchivementService {
     }
 
     private BigDecimal getEmergencyReserve(User u) {
-        // TOD: saldo/valor na conta de “reserva de emergência”
-        return BigDecimal.ZERO;
+        List<Accounts> accounts = accountsRepository.findByUser(u);
+
+        BigDecimal max = BigDecimal.ZERO;
+
+        for (Accounts acc : accounts) {
+            if (acc.getActive() != Active.ACTIVE) continue;
+            if (!isSavings(acc.getType())) continue;
+
+            Double bal = acc.getBalance();
+            if (bal == null) continue;
+
+            BigDecimal val = BigDecimal
+                    .valueOf(bal)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            if (val.compareTo(max) > 0) {
+                max = val;
+            }
+        }
+
+        return max;
     }
+
 
     private int countCreditCards(User u) {
         // TOD: quantidade de cartões cadastrados

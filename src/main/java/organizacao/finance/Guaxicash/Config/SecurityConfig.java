@@ -30,23 +30,23 @@ public class SecurityConfig {
     @Autowired
     private SecurityFilter securityFilter;
 
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(c -> {})
                 .csrf(csrf -> csrf.disable())
-                // IMPORTANTE: troque STATELESS por IF_REQUIRED para o handshake OAuth2
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
                         // Rotas públicas
                         .requestMatchers(HttpMethod.POST, "/users/login", "/users/register").permitAll()
-                        // PERMITA as rotas do fluxo OAuth2:
                         .requestMatchers("/", "/index.html").permitAll()
                         .requestMatchers("/oauth2/**", "/login/**", "/login/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        // Demais rotas autenticadas
+                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/mail-test").permitAll()
+
+                        // Qualquer outra rota precisa estar autenticada
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex
@@ -64,7 +64,6 @@ public class SecurityConfig {
                             res.getWriter().write("{\"message\":\"Acesso negado\"}");
                         })
                 )
-                // mantém seu filtro JWT ANTES do UsernamePasswordAuthenticationFilter
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

@@ -30,4 +30,11 @@ public interface AccountsRepository extends JpaRepository<Accounts, UUID> {
     @Modifying
     @Transactional
     void deleteByUser_Uuid(UUID userId);
+
+    @Query("""
+           SELECT COUNT(DISTINCT a.bank.uuid)
+           FROM Accounts a
+           WHERE a.user.uuid = :userId
+           """)
+    int countDistinctBanksByUser(@Param("userId") UUID userId);
 }

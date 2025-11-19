@@ -29,6 +29,7 @@ public class RecipheService {
     @Autowired private SecurityService securityService;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private GamificationEventPublisher gamificationEventPublisher;
+    @Autowired private ArchivementService archivementService;
 
     private boolean isAdmin(User me) { return me.getRole() == UserRole.ADMIN; }
 
@@ -105,7 +106,7 @@ public class RecipheService {
         }
 
         UUID categoryId = reciphe.getCategory().getUuid();
-        UUID accountId  = reciphe.getAccounts().getUuid();
+        UUID accountId = reciphe.getAccounts().getUuid();
 
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundExeption(categoryId));
@@ -129,13 +130,20 @@ public class RecipheService {
         addToBalance(accounts, bd(reciphe.getValue()));
         accountsRepository.save(accounts);
 
+        // salva a receita de fato
+        Reciphe saved = recipheRepository.save(reciphe);
+
+        // evento de gamificação existente
         gamificationEventPublisher.incomeCreated(
-                reciphe.getAccounts().getUser().getUuid(),
-                reciphe.getUuid(),
-                reciphe.getDateRegistration()
+                saved.getAccounts().getUser().getUuid(),
+                saved.getUuid(),
+                saved.getDateRegistration()
         );
 
-        return recipheRepository.save(reciphe);
+        // NOVO: checa se a reserva de emergência (poupança) atingiu 10k
+        archivementService.onIncomeCreated(saved.getAccounts());
+
+        return saved;
     }
 
     @Transactional
