@@ -95,6 +95,13 @@ public class UserResource {
         return ResponseEntity.ok().body(obj);
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UserMeDTO> getMe() {
+        UserMeDTO dto = userService.getAuthenticatedUser();
+        return ResponseEntity.ok(dto);
+    }
+
     @DeleteMapping(value = "/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> delete(@PathVariable UUID id){

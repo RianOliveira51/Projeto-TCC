@@ -41,6 +41,20 @@ public class ExpenseService {
         if (c.isActive() != Active.ACTIVE) throw new IllegalStateException("Categoria desativada. Operação não permitida.");
     }
 
+    public BigDecimal totalForLogged(LocalDate from, LocalDate to, Active active) {
+        User me = securityService.obterUserLogin();
+
+        // default: considerar apenas despesas ativas, a menos que o caller peça diferente
+        Active effective = (active == null ? Active.ACTIVE : active);
+
+        Double sum = expenseRepository.sumByUserWithFilters(
+                me.getUuid(), from, to, effective
+        );
+
+        // Nunca nulo por causa do coalesce, mas protegemos mesmo assim
+        double value = (sum == null ? 0.0 : sum.doubleValue());
+        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
+    }
 
     public List<Expenses> findAll() {
         User me = securityService.obterUserLogin();

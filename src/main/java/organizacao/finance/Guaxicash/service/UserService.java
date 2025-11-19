@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import organizacao.finance.Guaxicash.entities.User;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
 import organizacao.finance.Guaxicash.entities.Enums.UserRole;
+import organizacao.finance.Guaxicash.entities.dto.UserMeDTO;
 import organizacao.finance.Guaxicash.repositories.AccountsRepository;
 import organizacao.finance.Guaxicash.repositories.UserRepository;
 import organizacao.finance.Guaxicash.service.exceptions.ResourceNotFoundExeption;
@@ -38,6 +39,30 @@ public class UserService implements UserDetailsService {
     public User findByIdAndActive(UUID id, Active active){
         return userRepository.findByUuidAndActive(id, active)
                 .orElseThrow(() -> new ResourceNotFoundExeption(id));
+    }
+
+    public UserMeDTO getAuthenticatedUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null || !(auth.getPrincipal() instanceof User)) {
+            throw new IllegalStateException("Usuário não autenticado.");
+        }
+
+        User authUser = (User) auth.getPrincipal();
+        
+        User user = userRepository.findById(authUser.getUuid())
+                .orElseThrow(() -> new ResourceNotFoundExeption(authUser.getUuid()));
+
+        return new UserMeDTO(
+                user.getUuid(),
+                user.getName(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getXP(),
+                user.getRank(),
+                user.getRole(),
+                user.getActive()
+        );
     }
 
     public User insert(User user){

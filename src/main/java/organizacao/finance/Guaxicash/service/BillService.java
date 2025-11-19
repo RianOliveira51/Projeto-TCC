@@ -89,7 +89,7 @@ public class BillService {
     public void generateBillsUntilDec2025(CreditCard card) {
         LocalDate today = LocalDate.now();
         YearMonth startYm = YearMonth.from(today);
-        YearMonth endYm   = YearMonth.of(2025, 12);
+        YearMonth endYm   = YearMonth.of(2026, 05);
 
         List<Bill> toSave = new ArrayList<>();
 

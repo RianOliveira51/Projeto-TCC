@@ -12,6 +12,7 @@ import organizacao.finance.Guaxicash.entities.Expenses;
 import organizacao.finance.Guaxicash.entities.dto.HttpResponseDTO;
 import organizacao.finance.Guaxicash.service.ExpenseService;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
@@ -39,6 +40,16 @@ public class ExpenseResource {
     public ResponseEntity<Expenses> findById(
             @PathVariable @org.hibernate.validator.constraints.UUID(message = "UUID inválido") String id) {
         return ResponseEntity.ok(expenseServiceservice.findById(UUID.fromString(id)));
+    }
+
+    @GetMapping("/total")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<BigDecimal> totalAmount(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Active active
+    ) {
+        return ResponseEntity.ok(expenseServiceservice.totalForLogged(from, to, active));
     }
 
     @GetMapping("/search")

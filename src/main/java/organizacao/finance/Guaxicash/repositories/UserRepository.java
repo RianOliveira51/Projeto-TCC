@@ -3,6 +3,7 @@ package organizacao.finance.Guaxicash.repositories;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import organizacao.finance.Guaxicash.entities.Enums.Active;
+import organizacao.finance.Guaxicash.entities.Enums.UserRole;
 import organizacao.finance.Guaxicash.entities.User;
 
 import java.util.List;
@@ -16,5 +17,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
      List<User> findAllByActive(Active active);
      Optional<User> findByUuidAndActive(UUID uuid, Active active);
+
+     // ✅ conta apenas ADMINs com status desejado (usaremos ACTIVE)
+     long countByRoleAndActive(UserRole role, Active active);
 
 }

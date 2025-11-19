@@ -58,4 +58,18 @@ public interface ExpenseRepository extends JpaRepository<Expenses, UUID> {
     @Transactional
     void deleteByAccounts_User_Uuid(UUID userId);
 
+    // ExpenseRepository.java
+    @Query("""
+    select coalesce(sum(e.value), 0)
+      from Expenses e
+     where e.accounts.user.uuid = :userId
+       and (:active is null or e.active = :active)
+       and (:from  is null or e.dateRegistration >= :from)
+       and (:to    is null or e.dateRegistration <= :to)
+""")
+    Double sumByUserWithFilters(@Param("userId") UUID userId,
+                                @Param("from") LocalDate from,
+                                @Param("to") LocalDate to,
+                                @Param("active") Active active);
+
 }
